@@ -88,6 +88,12 @@ export const MISSIONS = [
   },
 ];
 
+// Seconds as m:ss, like the reference's "2:06" countdown.
+function fmtTime(seconds) {
+  const v = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
+}
+
 export function createMissions(scene) {
   // The beacon: a glowing pillar and a ring over the current target.
   const beaconMat = new THREE.MeshBasicMaterial({ color: 0xffd23b, transparent: true, opacity: 0.45, depthWrite: false });
@@ -102,11 +108,23 @@ export function createMissions(scene) {
   ring.visible = false;
   scene.add(ring);
 
-  let current = null; // { mission, objectiveIndex, state... }
+  let current = null; // { mission, index, objectiveIndex }
   let raceIndex = 0;
   let killCount = 0;
   let surviveTimer = 0;
   let objectiveTimer = 0;
+
+  function showBeaconAt(spot) {
+    beacon.position.set(spot.x, 30, spot.z);
+    ring.position.set(spot.x, 0.3, spot.z);
+    beacon.visible = true;
+    ring.visible = true;
+  }
+
+  function hideBeacon() {
+    beacon.visible = false;
+    ring.visible = false;
+  }
 
   function startMission(index, ctx) {
     const mission = MISSIONS[index];
@@ -165,17 +183,50 @@ export function createMissions(scene) {
     ctx.audio.missionDone();
     ctx.saveData();
     current = null;
-    beacon.visible = false;
-    ring.visible = false;
+    hideBeacon();
   }
 
   function fail(ctx, reason) {
     ctx.hud.showToast(`Misi gagal: ${reason}. Coba lagi dari awal misi.`);
     current = null;
-    beacon.visible = false;
-    ring.visible = false;
+    hideBeacon();
     ctx.combat.clearAll();
   }
+
+  // One handler per objective type: each one moves the beacon and advances
+  // when its condition is met. `px, pz` is the player's position.
+  const handlers = {
+    goto(objective, dt, ctx, px, pz) {
+      const spot = SPOTS[objective.spot];
+      showBeaconAt(spot);
+      if (distance2D(px, pz, spot.x, spot.z) < 7) advance(ctx);
+    },
+    deliver(objective, dt, ctx, px, pz) {
+      handlers.goto(objective, dt, ctx, px, pz);
+    },
+    race(objective, dt, ctx, px, pz) {
+      objectiveTimer += dt;
+      const spot = SPOTS[objective.spots[raceIndex]];
+      showBeaconAt(spot);
+      if (distance2D(px, pz, spot.x, spot.z) < 8) {
+        raceIndex += 1;
+        ctx.audio.pickup();
+        if (raceIndex >= objective.spots.length) advance(ctx);
+      } else if (objectiveTimer > objective.time) {
+        fail(ctx, 'waktu balapan habis');
+      }
+    },
+    survive(objective, dt, ctx, px, pz) {
+      surviveTimer += dt;
+      hideBeacon();
+      if (ctx.police.wanted < 2) ctx.police.setWanted(3);
+      if (surviveTimer >= objective.seconds) advance(ctx);
+    },
+    // punch / kill / steal: the beacon stays on the spot.
+    other(objective, dt, ctx, px, pz) {
+      showBeaconAt(SPOTS[objective.spot]);
+    },
+  };
 
   return {
     get current() {
@@ -210,50 +261,15 @@ export function createMissions(scene) {
     },
     update(dt, ctx) {
       if (!current) {
-        beacon.visible = false;
-        ring.visible = false;
+        hideBeacon();
         return;
       }
       const objective = currentObjective();
       const player = ctx.player;
       const px = player.inCar ? player.inCar.x : player.x;
       const pz = player.inCar ? player.inCar.z : player.z;
-
-      if (objective.type === 'goto' || objective.type === 'deliver') {
-        const spot = SPOTS[objective.spot];
-        beacon.position.set(spot.x, 30, spot.z);
-        ring.position.set(spot.x, 0.3, spot.z);
-        beacon.visible = true;
-        ring.visible = true;
-        if (distance2D(px, pz, spot.x, spot.z) < 7) advance(ctx);
-      } else if (objective.type === 'race') {
-        objectiveTimer += dt;
-        const spot = SPOTS[objective.spots[raceIndex]];
-        beacon.position.set(spot.x, 30, spot.z);
-        ring.position.set(spot.x, 0.3, spot.z);
-        beacon.visible = true;
-        ring.visible = true;
-        if (distance2D(px, pz, spot.x, spot.z) < 8) {
-          raceIndex += 1;
-          ctx.audio.pickup();
-          if (raceIndex >= objective.spots.length) advance(ctx);
-        } else if (objectiveTimer > objective.time) {
-          fail(ctx, 'waktu balapan habis');
-        }
-      } else if (objective.type === 'survive') {
-        surviveTimer += dt;
-        beacon.visible = false;
-        ring.visible = false;
-        if (ctx.police.wanted < 2) ctx.police.setWanted(3);
-        if (surviveTimer >= objective.seconds) advance(ctx);
-      } else {
-        // punch / kill / steal: the beacon stays on the spot.
-        const spot = SPOTS[objective.spot];
-        beacon.position.set(spot.x, 30, spot.z);
-        ring.position.set(spot.x, 0.3, spot.z);
-        beacon.visible = true;
-        ring.visible = true;
-      }
+      const handler = handlers[objective.type] || handlers.other;
+      handler(objective, dt, ctx, px, pz);
       // Beacon pulse.
       beacon.rotation.y += dt * 1.2;
       ring.scale.setScalar(1 + Math.sin(Date.now() * 0.004) * 0.12);
@@ -273,14 +289,9 @@ export function createMissions(scene) {
       const objective = currentObjective();
       if (!current || !objective) return null;
       const next = current.mission.objectives[current.objectiveIndex + 1];
-      // Timer as m:ss, like the reference's "2:06" countdown.
-      const fmt = (s) => {
-        const v = Math.max(0, Math.ceil(s));
-        return `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
-      };
       let timer = '';
-      if (objective.type === 'race') timer = fmt(objective.time - objectiveTimer);
-      if (objective.type === 'survive') timer = fmt(objective.seconds - surviveTimer);
+      if (objective.type === 'race') timer = fmtTime(objective.time - objectiveTimer);
+      if (objective.type === 'survive') timer = fmtTime(objective.seconds - surviveTimer);
       let progress = '';
       if (objective.type === 'race') progress = `${raceIndex}/${objective.spots.length} titik`;
       if (objective.type === 'kill') progress = `${killCount}/${objective.count} musuh`;

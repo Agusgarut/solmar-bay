@@ -57,6 +57,7 @@ export function createAudio() {
     return buffer;
   }
 
+  // One oscillator note: `slideTo` glides the pitch over the note.
   function blip(freq, seconds, type, volume, slideTo) {
     if (!ensure()) return;
     const osc = ctx.createOscillator();
@@ -72,6 +73,7 @@ export function createAudio() {
     osc.stop(ctx.currentTime + seconds + 0.02);
   }
 
+  // Filtered noise: gunshots, crashes, tyre screech.
   function noiseBurst(seconds, volume, lowFreq) {
     if (!ensure()) return;
     const source = ctx.createBufferSource();
@@ -86,6 +88,23 @@ export function createAudio() {
     filter.connect(gain);
     gain.connect(master);
     source.start();
+  }
+
+  // A note `delay` ms from now, so melodies are written as note lists.
+  function later(freq, seconds, type, volume, delayMs, slideTo) {
+    window.setTimeout(() => blip(freq, seconds, type, volume, slideTo), delayMs);
+  }
+
+  // One step of the music sequencer: bass note on every step, hi-hat tick
+  // on even steps, a kick on steps 0 and 4.
+  function musicTick() {
+    if (muted) return;
+    const notes = STATIONS[stationIndex].notes;
+    const step = musicStep % 8;
+    blip(notes[step], 0.42, 'triangle', 0.22);
+    if (step % 2 === 0) noiseBurst(0.04, 0.08, 6000); // hi-hat tick
+    if (step === 0 || step === 4) blip(50, 0.18, 'sine', 0.4, 38); // kick
+    musicStep += 1;
   }
 
   return {
@@ -131,7 +150,7 @@ export function createAudio() {
     siren(on) {
       if (!ensure() || !on) return;
       blip(660, 0.45, 'square', 0.05, 880);
-      window.setTimeout(() => blip(880, 0.45, 'square', 0.05, 660), 450);
+      later(880, 0.45, 'square', 0.05, 450, 660);
     },
     gunshot() {
       noiseBurst(0.16, 0.5, 2600);
@@ -142,7 +161,7 @@ export function createAudio() {
     },
     pickup() {
       blip(660, 0.12, 'sine', 0.25);
-      window.setTimeout(() => blip(990, 0.18, 'sine', 0.25), 110);
+      later(990, 0.18, 'sine', 0.25, 110);
     },
     crash() {
       noiseBurst(0.3, 0.5, 800);
@@ -155,31 +174,22 @@ export function createAudio() {
     // Two-tone car horn.
     horn() {
       blip(370, 0.22, 'square', 0.12);
-      window.setTimeout(() => blip(466, 0.22, 'square', 0.12), 40);
+      later(466, 0.22, 'square', 0.12, 40);
     },
     missionDone() {
       [523, 659, 784, 1047].forEach((freq, i) => {
-        window.setTimeout(() => blip(freq, 0.22, 'triangle', 0.3), i * 130);
+        later(freq, 0.22, 'triangle', 0.3, i * 130);
       });
     },
     busted() {
       [392, 330, 262].forEach((freq, i) => {
-        window.setTimeout(() => blip(freq, 0.3, 'sawtooth', 0.2), i * 200);
+        later(freq, 0.3, 'sawtooth', 0.2, i * 200);
       });
     },
     startMusic() {
       if (!ensure() || musicTimer) return;
       const station = STATIONS[stationIndex];
-      musicTimer = window.setInterval(() => {
-        if (muted) return;
-        const notes = STATIONS[stationIndex].notes;
-        const step = musicStep % 8;
-        const note = notes[step];
-        blip(note, 0.42, 'triangle', 0.22);
-        if (step % 2 === 0) noiseBurst(0.04, 0.08, 6000); // hi-hat tick
-        if (step === 0 || step === 4) blip(50, 0.18, 'sine', 0.4, 38); // kick
-        musicStep += 1;
-      }, station.tempo);
+      musicTimer = window.setInterval(musicTick, station.tempo);
     },
     stopMusic() {
       if (musicTimer) {

@@ -1,4 +1,16 @@
+# Build output (main.ts copies game/ + screenshots/ here for the grader)
 out/
+dist/
+
+# Logs and editor / OS junk
 *.log
-node_modules/
 .DS_Store
+Thumbs.db
+
+# Dependencies (none at runtime — the game is static + vendored)
+node_modules/
+
+# Local tooling state, never part of the entry
+coverage/
+.env
+.env.local

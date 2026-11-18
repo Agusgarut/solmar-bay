@@ -1,8 +1,36 @@
 // Save and load (localStorage, this browser only): money, mission progress,
 // best stats and settings. Storage can be off (private windows) — then the
-// game simply keeps everything for this visit only and never throws.
+// game simply keeps everything for this visit only and never throws, so
+// every save call goes through the guarded `store` wrapper below.
 
 const SAVE_KEY = 'solmar-bay.save.v1';
+
+// One guarded doorway to localStorage: every read/write/remove swallows
+// its own errors, so the rest of the game never has to think about it.
+const store = {
+  get() {
+    try {
+      return window.localStorage.getItem(SAVE_KEY);
+    } catch {
+      return null;
+    }
+  },
+  set(raw) {
+    try {
+      window.localStorage.setItem(SAVE_KEY, raw);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  remove() {
+    try {
+      window.localStorage.removeItem(SAVE_KEY);
+    } catch {
+      // Nothing to wipe.
+    }
+  },
+};
 
 export function defaultSave() {
   return {
@@ -17,11 +45,14 @@ export function defaultSave() {
   };
 }
 
+// Load, merging over the defaults so an old or partial save can never
+// leave a field undefined for the game.
 export function loadSave() {
+  const raw = store.get();
+  if (!raw) return defaultSave();
   try {
-    const raw = window.localStorage.getItem(SAVE_KEY);
-    if (!raw) return defaultSave();
     const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return defaultSave();
     return { ...defaultSave(), ...parsed };
   } catch {
     return defaultSave();
@@ -29,19 +60,11 @@ export function loadSave() {
 }
 
 export function writeSave(data) {
-  try {
-    window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-  } catch {
-    // Storage unavailable: play on without saving.
-  }
+  store.set(JSON.stringify(data));
 }
 
 // Wipe the save (used from the title screen's reset, and by tests).
 export function clearSave() {
-  try {
-    window.localStorage.removeItem(SAVE_KEY);
-  } catch {
-    // Nothing to wipe.
-  }
+  store.remove();
   return defaultSave();
 }

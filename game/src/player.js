@@ -6,6 +6,18 @@
 import * as THREE from 'three';
 import { WALK_SPEED, RUN_SPEED, JUMP_SPEED, GRAVITY, PLAYER_RADIUS, CAMERA_DISTANCE, CAMERA_HEIGHT, CAMERA_CAR_DISTANCE, CAMERA_CAR_HEIGHT, clamp, angleLerp } from './config.js';
 
+// One helper for every body part: a box mesh, positioned, optionally
+// casting a shadow, with its pivot translated so limbs swing from the hip
+// or shoulder instead of their centre.
+function part(w, h, d, material, x, y, z, pivotY) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  if (pivotY !== undefined) geo.translate(0, pivotY, 0);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  return mesh;
+}
+
 export function createPlayerCharacter() {
   const group = new THREE.Group();
   const skin = new THREE.MeshLambertMaterial({ color: 0xc98a5f });
@@ -13,44 +25,20 @@ export function createPlayerCharacter() {
   const pants = new THREE.MeshLambertMaterial({ color: 0x2a2d33 });
   const hair = new THREE.MeshLambertMaterial({ color: 0x1c1410 });
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.34), jacket);
-  torso.position.y = 1.18;
-  torso.castShadow = true;
+  const torso = part(0.62, 0.72, 0.34, jacket, 0, 1.18, 0);
   group.add(torso);
-
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.38, 0.34), skin);
-  head.position.y = 1.75;
-  head.castShadow = true;
+  const head = part(0.36, 0.38, 0.34, skin, 0, 1.75, 0);
   group.add(head);
-
-  const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.12, 0.36), hair);
-  hairTop.position.y = 1.97;
+  const hairTop = part(0.38, 0.12, 0.36, hair, 0, 1.97, 0);
   group.add(hairTop);
 
-  const legGeo = new THREE.BoxGeometry(0.24, 0.8, 0.26);
-  const leftLeg = new THREE.Mesh(legGeo, pants);
-  leftLeg.geometry = legGeo.clone();
-  leftLeg.geometry.translate(0, -0.4, 0);
-  leftLeg.position.set(-0.16, 0.82, 0);
-  leftLeg.castShadow = true;
+  const leftLeg = part(0.24, 0.8, 0.26, pants, -0.16, 0.82, 0, -0.4);
   group.add(leftLeg);
-  const rightLeg = new THREE.Mesh(legGeo, pants);
-  rightLeg.geometry = legGeo.clone();
-  rightLeg.geometry.translate(0, -0.4, 0);
-  rightLeg.position.set(0.16, 0.82, 0);
-  rightLeg.castShadow = true;
+  const rightLeg = part(0.24, 0.8, 0.26, pants, 0.16, 0.82, 0, -0.4);
   group.add(rightLeg);
-
-  const armGeo = new THREE.BoxGeometry(0.2, 0.66, 0.22);
-  const leftArm = new THREE.Mesh(armGeo, jacket);
-  leftArm.geometry = armGeo.clone();
-  leftArm.geometry.translate(0, -0.33, 0);
-  leftArm.position.set(-0.42, 1.5, 0);
+  const leftArm = part(0.2, 0.66, 0.22, jacket, -0.42, 1.5, 0, -0.33);
   group.add(leftArm);
-  const rightArm = new THREE.Mesh(armGeo, jacket);
-  rightArm.geometry = armGeo.clone();
-  rightArm.geometry.translate(0, -0.33, 0);
-  rightArm.position.set(0.42, 1.5, 0);
+  const rightArm = part(0.2, 0.66, 0.22, jacket, 0.42, 1.5, 0, -0.33);
   group.add(rightArm);
 
   // Pistol, shown only while the pistol is equipped.
@@ -102,6 +90,8 @@ export function createPlayer(scene) {
     // Move on foot: forward/strafe are -1..1 in camera space.
     step(dt, move, cameraYaw, resolveCircle) {
       const speed = move.run ? RUN_SPEED : WALK_SPEED;
+      // Camera-relative axes: forward is (sin yaw, cos yaw), right is
+      // (cos yaw, -sin yaw).
       const fx = Math.sin(cameraYaw);
       const fz = Math.cos(cameraYaw);
       const rx = Math.cos(cameraYaw);
@@ -130,7 +120,7 @@ export function createPlayer(scene) {
           this.vy = 0;
         }
       }
-      // Walk swing.
+      // Walk swing: legs and arms counter-swing.
       const swing = this.moving ? Math.sin(this.walkPhase) * 0.55 : 0;
       this.group.userData.leftLeg.rotation.x = swing;
       this.group.userData.rightLeg.rotation.x = -swing;
@@ -147,8 +137,9 @@ export function createPlayer(scene) {
 export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, player, dt, dragPixels, dragYPixels) {
   player.cameraYaw += dragPixels * 0.005;
   if (dragYPixels) clampCameraPitch(player, player.cameraPitch + dragYPixels * 0.0025);
-  // Camera sits behind the focus: yaw equals the facing direction, so the
-  // camera offset (-sin yaw, -cos yaw) is the opposite of forward.
+  // The camera sits behind the focus: yaw equals the facing direction, so
+  // the offset (-sin yaw, -cos yaw) is the opposite of forward. In a car
+  // the yaw eases toward the car's heading; on foot it follows the drag.
   const targetYaw = player.inCar ? focusHeading : player.cameraYaw;
   const yaw = angleLerp(player.cameraYaw, targetYaw, Math.min(1, dt * (player.inCar ? 2.2 : 5)));
   player.cameraYaw = yaw;

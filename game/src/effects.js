@@ -1,6 +1,6 @@
-// Cheap pooled particles: dust puffs, exhaust smoke, muzzle sparks and
-// crash debris. One Points cloud per effect kind, recycled in place, so
-// effects never allocate during play.
+// Cheap pooled particles: dust puffs, exhaust smoke, muzzle sparks, crash
+// debris and water splashes. One Points cloud per effect kind, recycled in
+// place, so effects never allocate during play.
 
 import * as THREE from 'three';
 
@@ -19,8 +19,7 @@ function makeSoftDotTexture() {
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, 64, 64);
-  const texture = new THREE.CanvasTexture(canvas);
-  return texture;
+  return new THREE.CanvasTexture(canvas);
 }
 
 export function createEffects(scene) {
@@ -41,6 +40,8 @@ export function createEffects(scene) {
   points.frustumCulled = false;
   scene.add(points);
 
+  // Ring buffer: `cursor` walks the pool, so the oldest particle is always
+  // the next one recycled — no search, no allocation.
   const pool = [];
   for (let i = 0; i < MAX_PARTICLES; i += 1) {
     pool.push({ alive: false, x: 0, y: -100, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1 });
@@ -48,8 +49,9 @@ export function createEffects(scene) {
   let cursor = 0;
 
   function spawn(x, y, z, vx, vy, vz, life, r, g, b) {
-    const p = pool[cursor];
+    const index = cursor;
     cursor = (cursor + 1) % MAX_PARTICLES;
+    const p = pool[index];
     p.alive = true;
     p.x = x;
     p.y = y;
@@ -59,12 +61,14 @@ export function createEffects(scene) {
     p.vz = vz;
     p.life = life;
     p.maxLife = life;
-    const index = pool.indexOf(p);
     colors[index * 3] = r;
     colors[index * 3 + 1] = g;
     colors[index * 3 + 2] = b;
   }
 
+  // A burst of `count` particles from one point, each with a random
+  // velocity in a disc of `spread`, a random upward kick up to `up`, and a
+  // lifetime jittered around `life`.
   function burst(x, y, z, count, spread, up, life, r, g, b) {
     for (let i = 0; i < count; i += 1) {
       spawn(
@@ -98,6 +102,10 @@ export function createEffects(scene) {
     // Dark tyre smoke from a handbrake skid: slow, heavy, hangs low.
     skidSmoke(x, y, z) {
       burst(x, y, z, 5, 1.4, 0.5, 0.9, 0.16, 0.16, 0.18);
+    },
+    // White spray where something hits the water — beach chases.
+    splash(x, y, z) {
+      burst(x, y, z, 7, 2.2, 2.4, 0.6, 0.85, 0.95, 1.0);
     },
     update(dt) {
       for (let i = 0; i < MAX_PARTICLES; i += 1) {

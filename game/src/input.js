@@ -13,11 +13,27 @@ export const ACTION_JUMP = 64;
 export const ACTION_RADIO = 128;
 export const ACTION_HORN = 256;
 
-const FORWARD = new Set(['KeyW', 'ArrowUp']);
-const BACK = new Set(['KeyS', 'ArrowDown']);
-const LEFT = new Set(['KeyA', 'ArrowLeft']);
-const RIGHT = new Set(['KeyD', 'ArrowRight']);
-const RUN = new Set(['ShiftLeft', 'ShiftRight']);
+// One-shot keys: code -> action flag, looked up in the keydown handler.
+const ACTION_KEYS = {
+  Space: ACTION_JUMP,
+  KeyE: ACTION_ENTER_CAR,
+  KeyF: ACTION_PUNCH,
+  KeyQ: ACTION_WEAPON,
+  Enter: ACTION_CONFIRM,
+  KeyR: ACTION_RADIO,
+  KeyH: ACTION_HORN,
+  KeyP: ACTION_PAUSE,
+  Escape: ACTION_PAUSE,
+};
+
+// Held movement keys, grouped by direction so WASD and arrows agree.
+const MOVE_KEYS = {
+  forward: ['KeyW', 'ArrowUp'],
+  back: ['KeyS', 'ArrowDown'],
+  left: ['KeyA', 'ArrowLeft'],
+  right: ['KeyD', 'ArrowRight'],
+  run: ['ShiftLeft', 'ShiftRight'],
+};
 
 export function createInput(canvas) {
   const keys = new Set();
@@ -30,17 +46,16 @@ export function createInput(canvas) {
   let lastX = 0;
   let lastY = 0;
 
+  function heldAny(codes) {
+    for (const code of codes) if (keys.has(code)) return true;
+    return false;
+  }
+
   window.addEventListener('keydown', (event) => {
     if (event.repeat) return;
     keys.add(event.code);
-    if (event.code === 'Space') actions |= ACTION_JUMP;
-    else if (event.code === 'KeyE') actions |= ACTION_ENTER_CAR;
-    else if (event.code === 'KeyF') actions |= ACTION_PUNCH;
-    else if (event.code === 'KeyQ') actions |= ACTION_WEAPON;
-    else if (event.code === 'Enter') actions |= ACTION_CONFIRM;
-    else if (event.code === 'KeyR') actions |= ACTION_RADIO;
-    else if (event.code === 'KeyH') actions |= ACTION_HORN;
-    else if (event.code === 'KeyP' || event.code === 'Escape') actions |= ACTION_PAUSE;
+    const flag = ACTION_KEYS[event.code];
+    if (flag) actions |= flag;
   });
   window.addEventListener('keyup', (event) => {
     keys.delete(event.code);
@@ -72,17 +87,12 @@ export function createInput(canvas) {
   });
   window.addEventListener('contextmenu', (event) => event.preventDefault());
 
-  function held(set) {
-    for (const code of set) if (keys.has(code)) return true;
-    return false;
-  }
-
   return {
     /** -1..1 forward/back, -1..1 left/right, from the held movement keys. */
     move() {
-      const f = (held(FORWARD) ? 1 : 0) - (held(BACK) ? 1 : 0);
-      const s = (held(RIGHT) ? 1 : 0) - (held(LEFT) ? 1 : 0);
-      return { forward: f, strafe: s, run: held(RUN) };
+      const forward = (heldAny(MOVE_KEYS.forward) ? 1 : 0) - (heldAny(MOVE_KEYS.back) ? 1 : 0);
+      const strafe = (heldAny(MOVE_KEYS.right) ? 1 : 0) - (heldAny(MOVE_KEYS.left) ? 1 : 0);
+      return { forward, strafe, run: heldAny(MOVE_KEYS.run) };
     },
     /** Mouse drag since the last call, in pixels, for the camera orbit. */
     takeDrag() {

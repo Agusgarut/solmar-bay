@@ -9,15 +9,14 @@ export const ROAD_WIDTH = 14;
 export const ROAD_POSITIONS = [-315, -225, -135, -45, 45, 135, 225, 315];
 export const BEACH_X = 300; // sand starts here, water further east
 export const WATER_X = 360;
-// Round 6: the beach is NARROWER so the sea sits close to the road —
-// sand 322..348, waterline at 348, so the ocean fills the left of the
-// frame when driving south down Ocean boulevard instead of a thin strip.
+// Round 6: the beach is NARROW so the sea sits close to the road — sand
+// 322..348, waterline at 348, so the ocean fills the left of the frame when
+// driving south down Ocean boulevard instead of a thin strip.
 export const SAND_X0 = 322;
 export const WATERLINE_X = 348;
 
-// Traffic & crowd density: the streets must read busy, like the entries
-// on the feed — cars close together on the main roads, people on every
-// sidewalk.
+// Traffic & crowd density: the streets must read busy, like the entries on
+// the feed — cars close together on the main roads, people on every sidewalk.
 export const TRAFFIC_CARS = 80;
 export const PARKED_CARS = 28;
 export const PEDESTRIANS = 140;
@@ -78,8 +77,9 @@ export function districtAt(x, z) {
 }
 
 // Sun-soaked palette: bright golden-hour sky, warm sand, teal water,
-// terracotta roofs — the game should read as a bright afternoon in the
-// sun, not a dim dusk.
+// dark asphalt — the game should read as a bright afternoon in the sun,
+// not a dim dusk. The asphalt value matches the road texture (round 6:
+// dark, warm-grey, never wide brown).
 export const PALETTE = {
   skyDay: 0x87bfe8,
   skySunset: 0xffb070,
@@ -91,30 +91,39 @@ export const PALETTE = {
   water: 0x2e7f9e,
   sand: 0xe8d29a,
   grass: 0x7d9a62,
-  asphalt: 0x6b5648,
+  asphalt: 0x38332d,
   sidewalk: 0xb0a894,
   buildingGlass: 0x9fc4d8,
 };
 
-// Street names for the HUD district label: one per road line.
+// Street names for the HUD district label: one per road line, in the same
+// order as ROAD_POSITIONS.
 export const ROAD_NAMES = [
   'Jl. Kota Tua', 'Jl. Merdeka', 'Jl. Pelabuhan', 'Jl. Sudirman',
   'Jl. Marina', 'Jl. Pesisir', 'Jl. Pantai', 'Jl. Ocean',
 ];
 
+// The nearest road line gives the street; the axis gives the suffix
+// ("Utara" for a north-south road, "Timur" for an east-west one).
 export function streetAt(x, z) {
-  // The nearest road line gives the street; the axis gives the suffix.
-  let best = ROAD_POSITIONS[0];
+  let bestIndex = 0;
   let bestAxis = 'x';
   let bestD = Infinity;
   for (let i = 0; i < ROAD_POSITIONS.length; i += 1) {
-    const p = ROAD_POSITIONS[i];
-    const dx = Math.abs(x - p);
-    const dz = Math.abs(z - p);
-    if (dx < bestD) { bestD = dx; best = p; bestAxis = 'x'; }
-    if (dz < bestD) { bestD = dz; best = p; bestAxis = 'z'; }
+    const dx = Math.abs(x - ROAD_POSITIONS[i]);
+    if (dx < bestD) {
+      bestD = dx;
+      bestIndex = i;
+      bestAxis = 'x';
+    }
+    const dz = Math.abs(z - ROAD_POSITIONS[i]);
+    if (dz < bestD) {
+      bestD = dz;
+      bestIndex = i;
+      bestAxis = 'z';
+    }
   }
-  const name = ROAD_NAMES[ROAD_POSITIONS.indexOf(best)] || 'Jl. Solmar';
+  const name = ROAD_NAMES[bestIndex] || 'Jl. Solmar';
   return bestAxis === 'x' ? `${name} Utara` : `${name} Timur`;
 }
 
@@ -126,6 +135,7 @@ export function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+// Shortest-arc interpolation between two angles, in radians.
 export function angleLerp(a, b, t) {
   let d = (b - a) % (Math.PI * 2);
   if (d > Math.PI) d -= Math.PI * 2;

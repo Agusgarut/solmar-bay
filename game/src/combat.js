@@ -19,6 +19,21 @@ export function createCombat(scene, rng) {
     tracers.push({ line, life: 0.08 });
   }
 
+  // Take `amount` off an enemy: stagger, bleed, and die at 0 health.
+  function damageEnemy(enemy, amount, x, y, z, ctx) {
+    enemy.health -= amount;
+    enemy.stagger = 0.45;
+    if (ctx) ctx.effects.blood(x, y, z);
+    if (enemy.health <= 0) {
+      enemy.dead = true;
+      scene.remove(enemy.model);
+      const i = enemies.indexOf(enemy);
+      if (i >= 0) enemies.splice(i, 1);
+      return true;
+    }
+    return false;
+  }
+
   function spawnEnemy(x, z) {
     const model = createPlayerCharacter();
     // Red jacket marks a hostile.
@@ -48,12 +63,31 @@ export function createCombat(scene, rng) {
     for (const enemy of [...enemies]) removeEnemy(enemy);
   }
 
+  // The closest live enemy near the aim ray from `from` along `dir`
+  // (2..90 m out, within 2.2 m of the ray), or null.
+  function enemyOnRay(from, dir) {
+    let best = null;
+    let bestD = Infinity;
+    for (const enemy of enemies) {
+      if (enemy.dead) continue;
+      const to = new THREE.Vector3(enemy.x - from.x, 1.2 - from.y, enemy.z - from.z);
+      const along = to.dot(dir);
+      if (along < 2 || along > 90) continue;
+      const perp = to.clone().addScaledVector(dir, -along).length();
+      if (perp < 2.2 && along < bestD) {
+        bestD = along;
+        best = enemy;
+      }
+    }
+    return best;
+  }
+
   return {
     enemies,
     spawnEnemy,
     clearAll,
 
-    // Melee: hit anything hostile or pedestrian within 2.2 m in front.
+    // Melee: hit anything hostile or pedestrian within 2.4 m in front.
     punch(ctx) {
       const player = ctx.player;
       const fx = Math.sin(player.heading);
@@ -65,19 +99,12 @@ export function createCombat(scene, rng) {
         const dx = target.x - player.x;
         const dz = target.z - player.z;
         const d = Math.hypot(dx, dz);
+        // In front of the player (dot product with the facing vector).
         if (d < 2.4 && (dx * fx + dz * fz) / Math.max(d, 0.01) > 0.3) {
           hitSomething = true;
           ctx.effects.sparks(target.x, 1.2, target.z);
           if (target.health !== undefined) {
-            target.health -= 25;
-            target.stagger = 0.45; // a solid punch stuns the enemy briefly
-            if (target.health <= 0) {
-              target.dead = true;
-              ctx.effects.blood(target.x, 1, target.z);
-              scene.remove(target.model);
-              const i = enemies.indexOf(target);
-              if (i >= 0) enemies.splice(i, 1);
-            }
+            damageEnemy(target, 25, target.x, 1, target.z, ctx);
           } else {
             // A pedestrian: knocked down, flees when they get up.
             target.dead = true;
@@ -99,37 +126,14 @@ export function createCombat(scene, rng) {
       const from = new THREE.Vector3(player.x, player.y + 1.5, player.z);
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir);
-      // Aim assist: the closest enemy near the aim ray counts as hit.
-      let best = null;
-      let bestD = Infinity;
-      for (const enemy of enemies) {
-        if (enemy.dead) continue;
-        const to = new THREE.Vector3(enemy.x - from.x, 1.2 - from.y, enemy.z - from.z);
-        const along = to.dot(dir);
-        if (along < 2 || along > 90) continue;
-        const perp = to.clone().addScaledVector(dir, -along).length();
-        if (perp < 2.2 && along < bestD) {
-          bestD = along;
-          best = enemy;
-        }
-      }
+      const best = enemyOnRay(from, dir);
       const end = best
         ? new THREE.Vector3(best.x, 1.2, best.z)
         : from.clone().addScaledVector(dir, 70);
       addTracer(from, end);
       ctx.effects.muzzle(from.x + dir.x * 0.8, from.y, from.z + dir.z * 0.8);
       ctx.effects.sparks(end.x, end.y, end.z);
-      if (best) {
-        best.health -= 34;
-        best.stagger = 0.45;
-        ctx.effects.blood(best.x, 1.2, best.z);
-        if (best.health <= 0) {
-          best.dead = true;
-          scene.remove(best.model);
-          const i = enemies.indexOf(best);
-          if (i >= 0) enemies.splice(i, 1);
-        }
-      }
+      if (best) damageEnemy(best, 34, best.x, 1.2, best.z, ctx);
       ctx.peds.scare(player.x, player.z, 45);
       ctx.police.addWanted(1);
       return true;

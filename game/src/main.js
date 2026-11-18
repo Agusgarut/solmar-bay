@@ -211,6 +211,160 @@ let elapsed = 0;
 let prevEnemies = 0;
 let minimapTimer = 0;
 
+// Drive the player's car for one step: arcade controls, wall and car
+// collisions, running over pedestrians, dust and exhaust.
+function drivePlayerCar(dt, car, throttle, steer, handbrake, allCars) {
+  car.drive(dt, throttle, steer, handbrake);
+  // Handbrake skid: tyre smoke, screech and brake lights.
+  const skidding = handbrake && Math.abs(car.speed) > 15;
+  car.setBraking(handbrake || throttle < 0);
+  if (skidding) {
+    const bx = car.x - Math.sin(car.heading) * 1.6;
+    const bz = car.z - Math.cos(car.heading) * 1.6;
+    effects.skidSmoke(bx, 0.3, bz);
+    if (Math.random() < dt * 6) audio.skid();
+  }
+  const fixed = city.resolveCircle(car.x, car.z, 2.2);
+  if (Math.abs(fixed.x - car.x) + Math.abs(fixed.z - car.z) > 0.05) {
+    if (Math.abs(car.speed) > 12) {
+      audio.crash();
+      effects.sparks(car.x, 1, car.z);
+    }
+    car.speed *= 0.5;
+    car.x = fixed.x;
+    car.z = fixed.z;
+  }
+  // Ram other cars.
+  for (const other of allCars) {
+    if (other === car) continue;
+    if (distance2D(car.x, car.z, other.x, other.z) < 4.2) {
+      car.speed *= 0.88;
+      other.speed *= 0.9;
+      if (Math.abs(car.speed) > 10 && Math.random() < dt * 2) {
+        audio.crash();
+        effects.sparks(car.x, 1, car.z);
+      }
+    }
+  }
+  // Run over pedestrians.
+  for (const ped of peds.peds) {
+    if (ped.dead) continue;
+    if (distance2D(car.x, car.z, ped.x, ped.z) < 1.8 && Math.abs(car.speed) > 4) {
+      ped.dead = true;
+      scene.remove(ped.model);
+      peds.scare(car.x, car.z, 40);
+      police.addWanted(1);
+      audio.crash();
+      effects.blood(ped.x, 1, ped.z);
+      hud.showToast('Kamu menabrak pejalan kaki! Wanted +1.');
+    }
+  }
+  // Dust and exhaust while driving.
+  if (Math.abs(car.speed) > 8 && Math.random() < dt * 8) {
+    effects.dust(car.x - Math.sin(car.heading) * 2, 0.3, car.z - Math.cos(car.heading) * 2);
+  }
+  if (Math.abs(car.speed) > 20 && Math.random() < dt * 4) {
+    effects.smoke(car.x, 0.6, car.z);
+  }
+  player.x = car.x;
+  player.z = car.z;
+  player.heading = car.heading;
+  audio.engine(Math.abs(car.speed) / 42, true);
+}
+
+// Walk for one step: move on foot, and traffic can hit the player.
+function walkPlayer(dt, move, cameraYaw) {
+  player.step(dt, move, cameraYaw, city.resolveCircle);
+  audio.engine(0, false);
+  for (const car of traffic.cars) {
+    if (distance2D(car.x, car.z, player.x, player.z) < 1.4 && Math.abs(car.speed) > 3) {
+      applyDamage(player, 8);
+      lastDamageAt = elapsed;
+      car.speed *= 0.6;
+      audio.crash();
+      effects.sparks(player.x, 1, player.z);
+      peds.scare(player.x, player.z, 25);
+    }
+  }
+}
+
+// Advance every world system by one step and return the police outcome.
+function stepWorld(dt) {
+  const allCars = traffic.all().concat(police.copCars);
+  traffic.update(dt, allCars);
+  peds.update(dt);
+  const policeResult = police.update(dt, ctx);
+  prevEnemies = combat.enemies.length;
+  combat.update(dt, ctx);
+  if (combat.enemies.length < prevEnemies) {
+    // An enemy went down: loot a little ammo and count the kill.
+    player.ammo += 6;
+    missions.onKill(ctx);
+  }
+  missions.update(dt, ctx);
+  effects.update(dt);
+  city.update(dt, ctx.timeOfDay, player.inCar ? player.inCar : player);
+  return policeResult;
+}
+
+// HUD + minimap for the current frame, and the best-stats bookkeeping.
+function syncHud(dt) {
+  const missionTarget = missions.current ? missions.objectiveSpot(missions.currentObjective()) : null;
+  const mapState = {
+    playerX: player.x,
+    playerZ: player.z,
+    heading: player.heading,
+    trafficCars: traffic.cars,
+    copCars: police.copCars,
+    missionTarget,
+  };
+  ctx.lastMapState = mapState;
+  hud.update({
+    health: player.health,
+    armor: player.armor,
+    money: save.money,
+    wanted: police.wanted,
+    // Respect: jobs done + heat earned, like the reference's meter.
+    respect: Math.min(100, save.missionsDone * 12 + Math.max(save.bestWanted, police.wanted) * 8),
+    speed: player.inCar ? player.inCar.speed : 0,
+    inCar: !!player.inCar,
+    objective: missions.objectiveText(),
+    mission: missions.missionInfo(),
+    nextMission: missions.nextMissionInfo(save.missionIndex),
+    dispatch: police.dispatchList(player.x, player.z),
+    vehicle: player.inCar ? { name: player.inCar.type.label, condition: player.inCar.health } : null,
+    radio: audio.currentStation(),
+    weapon: { name: player.weapon, ammo: player.ammo },
+    district: districtAt(player.x, player.z),
+    street: streetAt(player.x, player.z),
+    timeOfDay: ctx.timeOfDay,
+    showCrosshair: !player.inCar && player.weapon === 'pistol',
+  });
+  save.bestWanted = Math.max(save.bestWanted, police.wanted);
+  if (player.inCar) save.bestSpeed = Math.max(save.bestSpeed || 0, Math.round(Math.abs(player.inCar.speed) * 3.6));
+  minimapTimer -= dt;
+  if (minimapTimer <= 0) {
+    minimapTimer = 0.15;
+    minimap.draw(mapState);
+  }
+}
+
+// Camera follows the player (or the car). The field of view widens with
+// speed so fast driving feels fast.
+function syncCamera(dt, drag, dragY) {
+  const focus = player.inCar ? player.inCar : player;
+  const focusY = player.inCar ? 1 : player.y;
+  updateCamera(camera, focus.x, focusY, focus.z, focus.heading, player, dt, drag, dragY);
+  const speed01 = player.inCar ? Math.min(1, Math.abs(player.inCar.speed) / 45) : 0;
+  // The speed FOV kick is gentle: a wide lens at speed shrinks the
+  // player car in the frame, which is the opposite of the GTA look.
+  const targetFov = 62 + speed01 * 8;
+  if (Math.abs(camera.fov - targetFov) > 0.2) {
+    camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3);
+    camera.updateProjectionMatrix();
+  }
+}
+
 function updateGame(dt, scripted) {
   elapsed += dt;
   ctx.timeOfDay = (ctx.timeBase + (elapsed / DAY_LENGTH_SECONDS) * 24) % 24;
@@ -275,92 +429,13 @@ function updateGame(dt, scripted) {
     const throttle = scripted ? scripted.throttle : move.forward;
     const steer = scripted ? scripted.steer : -move.strafe;
     const handbrake = !scripted && move.run;
-    car.drive(dt, throttle, steer, handbrake);
-    // Handbrake skid: tyre smoke, screech and brake lights.
-    const skidding = handbrake && Math.abs(car.speed) > 15;
-    car.setBraking(handbrake || throttle < 0);
-    if (skidding) {
-      const bx = car.x - Math.sin(car.heading) * 1.6;
-      const bz = car.z - Math.cos(car.heading) * 1.6;
-      effects.skidSmoke(bx, 0.3, bz);
-      if (Math.random() < dt * 6) audio.skid();
-    }
-    const fixed = city.resolveCircle(car.x, car.z, 2.2);
-    if (Math.abs(fixed.x - car.x) + Math.abs(fixed.z - car.z) > 0.05) {
-      if (Math.abs(car.speed) > 12) {
-        audio.crash();
-        effects.sparks(car.x, 1, car.z);
-      }
-      car.speed *= 0.5;
-      car.x = fixed.x;
-      car.z = fixed.z;
-    }
-    // Ram other cars.
-    for (const other of allCars) {
-      if (other === car) continue;
-      if (distance2D(car.x, car.z, other.x, other.z) < 4.2) {
-        car.speed *= 0.88;
-        other.speed *= 0.9;
-        if (Math.abs(car.speed) > 10 && Math.random() < dt * 2) {
-          audio.crash();
-          effects.sparks(car.x, 1, car.z);
-        }
-      }
-    }
-    // Run over pedestrians.
-    for (const ped of peds.peds) {
-      if (ped.dead) continue;
-      if (distance2D(car.x, car.z, ped.x, ped.z) < 1.8 && Math.abs(car.speed) > 4) {
-        ped.dead = true;
-        scene.remove(ped.model);
-        peds.scare(car.x, car.z, 40);
-        police.addWanted(1);
-        audio.crash();
-        effects.blood(ped.x, 1, ped.z);
-        hud.showToast('Kamu menabrak pejalan kaki! Wanted +1.');
-      }
-    }
-    // Dust and exhaust while driving.
-    if (Math.abs(car.speed) > 8 && Math.random() < dt * 8) {
-      effects.dust(car.x - Math.sin(car.heading) * 2, 0.3, car.z - Math.cos(car.heading) * 2);
-    }
-    if (Math.abs(car.speed) > 20 && Math.random() < dt * 4) {
-      effects.smoke(car.x, 0.6, car.z);
-    }
-    player.x = car.x;
-    player.z = car.z;
-    player.heading = car.heading;
-    audio.engine(Math.abs(car.speed) / 42, true);
+    drivePlayerCar(dt, car, throttle, steer, handbrake, allCars);
   } else {
-    player.step(dt, move, player.cameraYaw, city.resolveCircle);
-    audio.engine(0, false);
-    // Traffic can hit the player on foot.
-    for (const car of traffic.cars) {
-      if (distance2D(car.x, car.z, player.x, player.z) < 1.4 && Math.abs(car.speed) > 3) {
-        applyDamage(player, 8);
-        lastDamageAt = elapsed;
-        car.speed *= 0.6;
-        audio.crash();
-        effects.sparks(player.x, 1, player.z);
-        peds.scare(player.x, player.z, 25);
-      }
-    }
+    walkPlayer(dt, move, player.cameraYaw);
   }
 
   // World systems.
-  traffic.update(dt, allCars);
-  peds.update(dt);
-  const policeResult = police.update(dt, ctx);
-  prevEnemies = combat.enemies.length;
-  combat.update(dt, ctx);
-  if (combat.enemies.length < prevEnemies) {
-    // An enemy went down: loot a little ammo and count the kill.
-    player.ammo += 6;
-    missions.onKill(ctx);
-  }
-  missions.update(dt, ctx);
-  effects.update(dt);
-  city.update(dt, ctx.timeOfDay, player.inCar ? player.inCar : player);
+  const policeResult = stepWorld(dt);
 
   // Slow health regen out of combat: any health drop restarts the timer.
   if (player.health < prevHealth) lastDamageAt = elapsed;
@@ -376,59 +451,8 @@ function updateGame(dt, scripted) {
   }
   if (gameOverIfNeeded()) return;
 
-  // HUD + minimap.
-  const missionTarget = missions.current ? missions.objectiveSpot(missions.currentObjective()) : null;
-  const mapState = {
-    playerX: player.x,
-    playerZ: player.z,
-    heading: player.heading,
-    trafficCars: traffic.cars,
-    copCars: police.copCars,
-    missionTarget,
-  };
-  ctx.lastMapState = mapState;
-  hud.update({
-    health: player.health,
-    armor: player.armor,
-    money: save.money,
-    wanted: police.wanted,
-    // Respect: jobs done + heat earned, like the reference's meter.
-    respect: Math.min(100, save.missionsDone * 12 + Math.max(save.bestWanted, police.wanted) * 8),
-    speed: player.inCar ? player.inCar.speed : 0,
-    inCar: !!player.inCar,
-    objective: missions.objectiveText(),
-    mission: missions.missionInfo(),
-    nextMission: missions.nextMissionInfo(save.missionIndex),
-    dispatch: police.dispatchList(player.x, player.z),
-    vehicle: player.inCar ? { name: player.inCar.type.label, condition: player.inCar.health } : null,
-    radio: audio.currentStation(),
-    weapon: { name: player.weapon, ammo: player.ammo },
-    district: districtAt(player.x, player.z),
-    street: streetAt(player.x, player.z),
-    timeOfDay: ctx.timeOfDay,
-    showCrosshair: !player.inCar && player.weapon === 'pistol',
-  });
-  save.bestWanted = Math.max(save.bestWanted, police.wanted);
-  if (player.inCar) save.bestSpeed = Math.max(save.bestSpeed || 0, Math.round(Math.abs(player.inCar.speed) * 3.6));
-  minimapTimer -= dt;
-  if (minimapTimer <= 0) {
-    minimapTimer = 0.15;
-    minimap.draw(mapState);
-  }
-
-  // Camera follows the player (or the car). The field of view widens with
-  // speed so fast driving feels fast.
-  const focus = player.inCar ? player.inCar : player;
-  const focusY = player.inCar ? 1 : player.y;
-  updateCamera(camera, focus.x, focusY, focus.z, focus.heading, player, dt, drag, dragY);
-  const speed01 = player.inCar ? Math.min(1, Math.abs(player.inCar.speed) / 45) : 0;
-  // The speed FOV kick is gentle: a wide lens at speed shrinks the
-  // player car in the frame, which is the opposite of the GTA look.
-  const targetFov = 62 + speed01 * 8;
-  if (Math.abs(camera.fov - targetFov) > 0.2) {
-    camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3);
-    camera.updateProjectionMatrix();
-  }
+  syncHud(dt);
+  syncCamera(dt, drag, dragY);
 }
 
 // ---- Screens -------------------------------------------------------------

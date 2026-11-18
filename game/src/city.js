@@ -49,13 +49,15 @@ function makeRoadTexture() {
   canvas.width = 512;
   canvas.height = 64;
   const g = canvas.getContext('2d');
-  g.fillStyle = '#38332d';
+  // Warm dark grey base: dark enough to read as asphalt, warm enough to
+  // catch the sunset instead of going cold blue-grey.
+  g.fillStyle = '#3a352e';
   g.fillRect(0, 0, 512, 64);
   // Soft tonal blotches: low alpha so the 512px tile repeats without an
   // obvious seam, just enough grain to break the flat colour.
   for (let i = 0; i < 26; i += 1) {
     const light = rng01() < 0.5;
-    g.fillStyle = light ? 'rgba(110, 100, 88, 0.10)' : 'rgba(30, 26, 22, 0.14)';
+    g.fillStyle = light ? 'rgba(112, 102, 90, 0.10)' : 'rgba(30, 26, 22, 0.14)';
     const w = 20 + rng01() * 60;
     const h = 6 + rng01() * 18;
     g.fillRect(rng01() * 512, rng01() * 64, w, h);
@@ -326,6 +328,43 @@ export function buildCity(scene, rng) {
     ['TACOS', '#ffe14f'], ['CINEMA', '#4f9dff'],
   ];
 
+  // Rooftop dressing for a finished building: AC boxes and antennas on
+  // mid-rise roofs so the skyline isn't flat slabs, a neon sign on tall
+  // downtown / beachfront towers, and a bright shopfront awning over the
+  // ground floor of low street-level buildings.
+  function dressBuilding(cx, cz, w, d, h, district) {
+    if (h > 18 && rng() < 0.55) {
+      const ac = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.1, 1.6), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 }));
+      ac.position.set(cx + w * 0.2, h + 0.55, cz - d * 0.15);
+      ac.castShadow = true;
+      group.add(ac);
+      const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 5, 5), poleMat);
+      antenna.position.set(cx - w * 0.25, h + 2.5, cz + d * 0.2);
+      group.add(antenna);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 5), new THREE.MeshLambertMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 0.8 }));
+      tip.position.set(cx - w * 0.25, h + 5.1, cz + d * 0.2);
+      group.add(tip);
+    }
+    if ((district === 'downtown' || district === 'beachfront') && h > 30 && rng() < 0.45) {
+      const [text, color] = pick(rng, NEON_SIGNS);
+      const sign = new THREE.Mesh(
+        new THREE.PlaneGeometry(11, 2.8),
+        new THREE.MeshBasicMaterial({ map: makeSignTexture(text, color) }),
+      );
+      sign.position.set(cx, h * 0.72, cz + d / 2 + 0.35);
+      group.add(sign);
+    }
+    if (district !== 'industrial' && h < 30 && rng() < 0.4) {
+      const awning = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.min(w * 0.7, 14), 0.18, 1.4),
+        pick(rng, awningMats),
+      );
+      awning.position.set(cx, 3.4, cz + d / 2 + 0.7);
+      awning.castShadow = true;
+      group.add(awning);
+    }
+  }
+
   function addBuilding(cx, cz, w, d, h, district) {
     const glass = district === 'downtown';
     // Clone the facade texture per building and repeat it to the building's
@@ -357,41 +396,7 @@ export function buildCity(scene, rng) {
       box.castShadow = true;
       group.add(box);
     }
-    // Rooftop props on mid-rise buildings: AC boxes and antennas, so the
-    // skyline has something on top instead of flat slabs.
-    if (h > 18 && rng() < 0.55) {
-      const ac = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.1, 1.6), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 }));
-      ac.position.set(cx + w * 0.2, h + 0.55, cz - d * 0.15);
-      ac.castShadow = true;
-      group.add(ac);
-      const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 5, 5), poleMat);
-      antenna.position.set(cx - w * 0.25, h + 2.5, cz + d * 0.2);
-      group.add(antenna);
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 5), new THREE.MeshLambertMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 0.8 }));
-      tip.position.set(cx - w * 0.25, h + 5.1, cz + d * 0.2);
-      group.add(tip);
-    }
-    // Neon sign on some tall downtown / beachfront buildings.
-    if ((district === 'downtown' || district === 'beachfront') && h > 30 && rng() < 0.45) {
-      const [text, color] = pick(rng, NEON_SIGNS);
-      const sign = new THREE.Mesh(
-        new THREE.PlaneGeometry(11, 2.8),
-        new THREE.MeshBasicMaterial({ map: makeSignTexture(text, color) }),
-      );
-      sign.position.set(cx, h * 0.72, cz + d / 2 + 0.35);
-      group.add(sign);
-    }
-    // Shopfront awning on low street-level buildings: a bright canopy over
-    // the ground floor, so the street reads as shops.
-    if (district !== 'industrial' && h < 30 && rng() < 0.4) {
-      const awning = new THREE.Mesh(
-        new THREE.BoxGeometry(Math.min(w * 0.7, 14), 0.18, 1.4),
-        pick(rng, awningMats),
-      );
-      awning.position.set(cx, 3.4, cz + d / 2 + 0.7);
-      awning.castShadow = true;
-      group.add(awning);
-    }
+    dressBuilding(cx, cz, w, d, h, district);
     return building;
   }
 
@@ -662,29 +667,24 @@ export function buildCity(scene, rng) {
     palmGroup.add(trunk);
     const crownY = 7.3;
     const crownX = lean * 7;
-    const frondMat = pick(rng, palmFrondMats);
-    // Lower crown: 6 long fronds arcing outward and DROOPING past
-    // horizontal, thick enough to have volume from any angle.
-    for (let i = 0; i < 6; i += 1) {
-      const angle = (i / 6) * Math.PI * 2 + range(rng, -0.2, 0.2);
-      const frond = new THREE.Mesh(palmFrondGeo, frondMat);
-      frond.scale.set(1, 1, 0.5);
-      frond.position.set(crownX + Math.sin(angle) * 1.8, crownY - 0.4, Math.cos(angle) * 1.8);
-      frond.rotation.set(Math.cos(angle) * 1.75, 0, -Math.sin(angle) * 1.75);
-      frond.castShadow = true;
-      palmGroup.add(frond);
+    // One ring of fronds around the crown: each frond is a thick cone
+    // tilted out from vertical by `tilt` (past horizontal = drooping),
+    // placed at `radius` from the crown centre. Two rings make the crown:
+    // a wide drooping lower ring and a shorter, lighter, more upright
+    // upper ring, so the crown has a second layer and a real silhouette.
+    function frondRing(count, radius, height, tilt, size, material, offset) {
+      for (let i = 0; i < count; i += 1) {
+        const angle = (i / count) * Math.PI * 2 + offset + range(rng, -0.2, 0.2);
+        const frond = new THREE.Mesh(palmFrondGeo, material);
+        frond.scale.set(size, size, size * 0.5);
+        frond.position.set(crownX + Math.sin(angle) * radius, height, Math.cos(angle) * radius);
+        frond.rotation.set(Math.cos(angle) * tilt, 0, -Math.sin(angle) * tilt);
+        frond.castShadow = true;
+        palmGroup.add(frond);
+      }
     }
-    // Upper crown: 3 shorter, lighter fronds reaching up between the
-    // lower ones, so the crown has a second layer and a real silhouette.
-    for (let i = 0; i < 3; i += 1) {
-      const angle = (i / 3) * Math.PI * 2 + Math.PI / 3 + range(rng, -0.2, 0.2);
-      const frond = new THREE.Mesh(palmFrondGeo, palmFrondTopMat);
-      frond.scale.set(0.75, 0.75, 0.4);
-      frond.position.set(crownX + Math.sin(angle) * 1.1, crownY + 0.7, Math.cos(angle) * 1.1);
-      frond.rotation.set(Math.cos(angle) * 1.15, 0, -Math.sin(angle) * 1.15);
-      frond.castShadow = true;
-      palmGroup.add(frond);
-    }
+    frondRing(6, 1.8, crownY - 0.4, 1.75, 1, pick(rng, palmFrondMats), 0);
+    frondRing(3, 1.1, crownY + 0.7, 1.15, 0.75, palmFrondTopMat, Math.PI / 3);
     for (const [nx, nz] of [[0.45, 0.3], [-0.4, -0.25], [0.1, -0.5]]) {
       const nut = new THREE.Mesh(palmNutGeo, palmNutMat);
       nut.position.set(crownX + nx, crownY - 0.6, nz);
@@ -745,13 +745,14 @@ export function buildCity(scene, rng) {
     umbrella(330 + range(rng, -4, 10), z + range(rng, -6, 6), pick(rng, umbrellaColors));
   }
 
-  // Billboards: big glowing signs over the main avenues.
+  // Billboards: big glowing signs over the main avenues. A "big" board
+  // stands taller with a wider panel, so it reads from down the street.
   function billboard(x, z, rotY, text, color, big) {
     const board = new THREE.Group();
-    const postH = big ? 12 : 9;
+    const postH = big ? 17 : 9;
     const panelW = big ? 22 : 15;
     const panelH = big ? 7 : 5;
-    const panelY = big ? 14 : 11;
+    const panelY = big ? 19 : 11;
     for (const dx of [-panelW / 2, panelW / 2]) {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, postH, 6), poleMat);
       post.position.set(dx, postH / 2, 0);
@@ -773,8 +774,10 @@ export function buildCity(scene, rng) {
   // The reference's giant pink radio billboard — on the SAND side of the
   // beach road, angled to face the southbound chase cam, so the whole
   // panel reads (a west-side board hides behind the hotel wall). Our own
-  // station, SOLMAR FM, never the reference's brand.
-  billboard(334, 35, -2.7, 'SOLMAR FM', '#ff5e8a', true);
+  // station, SOLMAR FM, never the reference's brand. It sits at z=70,
+  // clear of the foreground palm that used to cut it in half in the drive
+  // shot, and the panel rides higher (16 m) than the palm crowns.
+  billboard(334, 70, -2.7, 'SOLMAR FM', '#ff5e8a', true);
   // Beachfront palms: tall RED trunks (the reference's signature) lining
   // BOTH sides of the Ocean boulevard (x=315) — the sand edge east of the
   // road and the sidewalk west of it — every ~14 m, so the beach road
@@ -965,10 +968,14 @@ export function buildCity(scene, rng) {
       playerPos.z + 120,
     );
     sun.target.position.copy(playerPos);
-    sun.intensity = 0.2 + dayFactor * 1.5 + sunsetFactor * 0.45;
+    sun.intensity = 0.25 + dayFactor * 1.5 + sunsetFactor * 0.45;
     sunColor.setRGB(1, lerp(0.7, 0.97, dayFactor), lerp(0.55, 0.93, dayFactor));
     sun.color.copy(sunColor);
-    hemi.intensity = 0.3 + dayFactor * 0.4 + sunsetFactor * 0.1;
+    // Hemisphere fill a touch stronger than before: at golden hour the
+    // hotel shadows on the beach road used to swallow the asphalt in the
+    // lower-right of the drive/chase frames. The fill lifts the shaded
+    // road just enough to read, without washing the long shadows out.
+    hemi.intensity = 0.34 + dayFactor * 0.45 + sunsetFactor * 0.12;
     const sky = new THREE.Color().copy(skyNight).lerp(skyDay, dayFactor);
     sky.lerp(skySunset, sunsetFactor * 0.8);
     sky.lerp(skyGolden, sunsetFactor * 0.35);
@@ -1010,9 +1017,10 @@ export function buildCity(scene, rng) {
     // The sea catches the sunset — a warm glint on top of its own turquoise
     // glow, so the water stays bright instead of going muddy grey.
     waterMat.emissiveIntensity = 0.3 + sunsetFactor * 0.1;
-    // The asphalt catches a little of it too — just enough warmth that
-    // the road reads sunlit, never a flat orange wash.
-    roadMat.emissiveIntensity = sunsetFactor * 0.05;
+    // The asphalt catches a little of it too — a small warm floor under
+    // the sunset glow, so shadowed road reads sunlit, never a flat black
+    // corner in the drive/chase frames.
+    roadMat.emissiveIntensity = 0.05 + sunsetFactor * 0.06;
     // Clouds drift slowly across the sky and fade out at night.
     for (const cloud of clouds) {
       cloud.position.x += dt * 1.2;

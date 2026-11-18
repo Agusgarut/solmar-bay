@@ -8,10 +8,12 @@ import { pick, range } from './random.js';
 
 // Bright shirts, so the sidewalks read busy and colourful at a glance.
 const SHIRT_COLORS = [0xff2e88, 0xffe14f, 0x2ec4b6, 0xd8d8d8, 0xc23b2e, 0x2e6fc2, 0x3a9e5f, 0xe8b93b, 0x8a4fc2, 0x22252a, 0xff7a1a];
+const SKIN_COLORS = [0xc98a5f, 0x8a5a38, 0xe8b88a];
+const CAP_COLORS = [0xff2e88, 0xffe14f, 0x2e6fc2, 0x22252a];
 
 function createPedModel(rng) {
   const group = new THREE.Group();
-  const skin = new THREE.MeshLambertMaterial({ color: pick(rng, [0xc98a5f, 0x8a5a38, 0xe8b88a]) });
+  const skin = new THREE.MeshLambertMaterial({ color: pick(rng, SKIN_COLORS) });
   const shirt = new THREE.MeshLambertMaterial({ color: pick(rng, SHIRT_COLORS) });
   const pants = new THREE.MeshLambertMaterial({ color: 0x2a2d33 });
 
@@ -23,6 +25,19 @@ function createPedModel(rng) {
   head.position.y = 1.64;
   head.castShadow = true;
   group.add(head);
+  // About a third of the crowd wears a cap: a flat top plus a brim, so the
+  // heads aren't all identical boxes from the chase cam.
+  if (rng() < 0.35) {
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(0.36, 0.1, 0.34),
+      new THREE.MeshLambertMaterial({ color: pick(rng, CAP_COLORS) }),
+    );
+    cap.position.y = 1.84;
+    group.add(cap);
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.05, 0.16), cap.material);
+    brim.position.set(0, 1.8, 0.24);
+    group.add(brim);
+  }
   const legGeo = new THREE.BoxGeometry(0.2, 0.72, 0.22);
   legGeo.translate(0, -0.36, 0);
   const leftLeg = new THREE.Mesh(legGeo, pants);
@@ -38,31 +53,40 @@ function createPedModel(rng) {
 export function createPedestrians(scene, rng) {
   const peds = [];
 
-  function spawn() {
+  function addPed(model, x, z, heading, speed, extra) {
+    const ped = {
+      model,
+      x, z, heading,
+      speed,
+      walkPhase: rng() * 6,
+      fleeing: false,
+      fleeTimer: 0,
+      dead: false,
+      ...(extra || {}),
+    };
+    model.position.set(x, 0, z);
+    model.rotation.y = heading;
+    peds.push(ped);
+    return ped;
+  }
+
+  // A walker on a sidewalk: picks a road, a side and a direction along it.
+  function spawnWalker() {
     const model = createPedModel(rng);
     scene.add(model);
     const road = pick(rng, ROAD_POSITIONS);
     const along = Math.random() < 0.5;
     const t = range(rng, -WORLD_HALF + 20, WORLD_HALF - 20);
     const side = rng() < 0.5 ? 1 : -1;
-    const ped = {
+    const off = road + side * (ROAD_WIDTH / 2 + 2.5);
+    return addPed(
       model,
-      x: along ? t : road + side * (ROAD_WIDTH / 2 + 2.5),
-      z: along ? road + side * (ROAD_WIDTH / 2 + 2.5) : t,
-      heading: along ? (side > 0 ? Math.PI / 2 : -Math.PI / 2) : (side > 0 ? 0 : Math.PI),
-      speed: range(rng, 1.2, 2.2),
-      walkPhase: rng() * 6,
-      fleeing: false,
-      fleeTimer: 0,
-      dead: false,
-    };
-    model.position.set(ped.x, 0, ped.z);
-    model.rotation.y = ped.heading;
-    peds.push(ped);
-    return ped;
+      along ? t : off,
+      along ? off : t,
+      along ? (side > 0 ? Math.PI / 2 : -Math.PI / 2) : (side > 0 ? 0 : Math.PI),
+      range(rng, 1.2, 2.2),
+    );
   }
-
-  for (let i = 0; i < PEDESTRIANS; i += 1) spawn();
 
   // A few people sit on the park benches instead of walking: legs bent,
   // still, watching the street go by.
@@ -74,18 +98,11 @@ export function createPedestrians(scene, rng) {
   for (const seat of BENCH_SEATS) {
     const model = createPedModel(rng);
     scene.add(model);
-    const ped = {
-      model,
-      x: seat.x, z: seat.z, heading: seat.heading,
-      speed: 0, walkPhase: 0, fleeing: false, fleeTimer: 0, dead: false,
-      seated: true,
-    };
+    const ped = addPed(model, seat.x, seat.z, seat.heading, 0, { seated: true });
     // Legs bent forward at the hip, like sitting on a bench.
     model.userData.leftLeg.rotation.x = -1.35;
     model.userData.rightLeg.rotation.x = -1.35;
-    model.position.set(ped.x, 0, ped.z);
-    model.rotation.y = ped.heading;
-    peds.push(ped);
+    ped.model = model;
   }
 
   // A few people cross the street at the zebra crossings: they walk from
@@ -105,18 +122,9 @@ export function createPedestrians(scene, rng) {
     const to = acrossX
       ? { x: c.x - side * (ROAD_WIDTH / 2 + 2.5), z: c.z }
       : { x: c.x, z: c.z - side * (ROAD_WIDTH / 2 + 2.5) };
-    const ped = {
-      model,
-      x: from.x, z: from.z,
-      heading: Math.atan2(to.x - from.x, to.z - from.z),
-      speed: range(rng, 1.4, 2.0),
-      walkPhase: rng() * 6,
-      fleeing: false, fleeTimer: 0, dead: false,
+    addPed(model, from.x, from.z, Math.atan2(to.x - from.x, to.z - from.z), range(rng, 1.4, 2.0), {
       crossing: true, crossFrom: from, crossTo: to,
-    };
-    model.position.set(ped.x, 0, ped.z);
-    model.rotation.y = ped.heading;
-    peds.push(ped);
+    });
   }
 
   // Beach strollers: people walking the sand along the shoreline, north
@@ -124,20 +132,10 @@ export function createPedestrians(scene, rng) {
   for (let i = 0; i < 10; i += 1) {
     const model = createPedModel(rng);
     scene.add(model);
-    const ped = {
-      model,
-      x: 327 + rng() * 14,
-      z: range(rng, -320, 320),
-      heading: rng() < 0.5 ? 0 : Math.PI,
-      speed: range(rng, 1.0, 1.8),
-      walkPhase: rng() * 6,
-      fleeing: false, fleeTimer: 0, dead: false,
-      beach: true,
-    };
-    model.position.set(ped.x, 0, ped.z);
-    model.rotation.y = ped.heading;
-    peds.push(ped);
+    addPed(model, 327 + rng() * 14, range(rng, -320, 320), rng() < 0.5 ? 0 : Math.PI, range(rng, 1.0, 1.8), { beach: true });
   }
+
+  for (let i = 0; i < PEDESTRIANS; i += 1) spawnWalker();
 
   function nearestRoadCoord(value) {
     let best = ROAD_POSITIONS[0];
@@ -149,7 +147,7 @@ export function createPedestrians(scene, rng) {
 
   return {
     peds,
-    spawn,
+    spawn: spawnWalker,
     // Scare every pedestrian within `radius` of (x, z): they run away.
     scare(x, z, radius) {
       for (const ped of peds) {

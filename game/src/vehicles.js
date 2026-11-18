@@ -22,6 +22,17 @@ export const CAR_TYPES = {
 
 const PAINT_COLORS = [0xff2e88, 0xff3b30, 0xff7a1a, 0xffe14f, 0x2ec4b6, 0xc23b2e, 0x2e6fc2, 0xe8b93b, 0x3a9e5f, 0x8a4fc2, 0xd8d8d8, 0x22252a];
 
+// One helper for every box part of a car: build the mesh, place it, and
+// (when asked) let it cast a shadow. Almost every car part is a box, so
+// this keeps the model code to one line per part.
+function box(group, w, h, d, material, x, y, z, shadow) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+  mesh.position.set(x, y, z);
+  if (shadow) mesh.castShadow = true;
+  group.add(mesh);
+  return mesh;
+}
+
 function makeDoorTextTexture(text) {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -115,44 +126,29 @@ export function createCarModel(typeName, color, rng) {
   const plateText = typeName === 'sport' && paint === 0xff2e88
     ? 'SB·88' : `SB·${10 + Math.floor((rng || Math.random)() * 89)}`;
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(type.width, 0.62, type.length), bodyMat);
-  body.position.y = 0.55;
-  body.castShadow = true;
-  group.add(body);
+  box(group, type.width, 0.62, type.length, bodyMat, 0, 0.55, 0, true);
 
   // Two-tone roof panel over the cabin, plus a dark grille and bumpers so
   // the car reads as a car at a glance, not a painted box. Convertibles
   // and trucks have their own tops (open top / cargo box) instead.
   if (typeName !== 'convertible' && typeName !== 'truck') {
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.84, 0.1, type.length * 0.46), bodyMat);
-    roof.position.set(0, 1.42, -type.length * 0.05);
-    group.add(roof);
+    box(group, type.width * 0.84, 0.1, type.length * 0.46, bodyMat, 0, 1.42, -type.length * 0.05, false);
   }
-  const grille = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.5, 0.18, 0.06), darkMat);
-  grille.position.set(0, 0.52, type.length / 2 + 0.02);
-  group.add(grille);
+  box(group, type.width * 0.5, 0.18, 0.06, darkMat, 0, 0.52, type.length / 2 + 0.02, false);
   // Chrome slats across the grille: the front face needs horizontal detail
   // or it reads as one flat dark slab from the chase cam's 3/4 angle.
   for (const gy of [0.47, 0.57]) {
-    const slat = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.46, 0.035, 0.03), chromeMat);
-    slat.position.set(0, gy, type.length / 2 + 0.06);
-    group.add(slat);
+    box(group, type.width * 0.46, 0.035, 0.03, chromeMat, 0, gy, type.length / 2 + 0.06, false);
   }
   for (const bz of [type.length / 2 - 0.05, -type.length / 2 + 0.05]) {
-    const bumper = new THREE.Mesh(new THREE.BoxGeometry(type.width + 0.06, 0.16, 0.22), darkMat);
-    bumper.position.set(0, 0.32, bz);
-    group.add(bumper);
+    box(group, type.width + 0.06, 0.16, 0.22, darkMat, 0, 0.32, bz, false);
   }
   // Side mirrors, body-coloured and oversized on purpose: at 1280x720 a
   // 0.12 m mirror is invisible, a 0.2 m one reads as a mirror.
   for (const side of [-1, 1]) {
-    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.26), bodyMat);
-    mirror.position.set(side * (type.width / 2 + 0.09), 1.06, type.length * 0.12);
-    group.add(mirror);
+    box(group, 0.2, 0.12, 0.26, bodyMat, side * (type.width / 2 + 0.09), 1.06, type.length * 0.12, false);
     // Door handles, one per side.
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.3), darkMat);
-    handle.position.set(side * (type.width / 2 + 0.01), 0.95, type.length * 0.08);
-    group.add(handle);
+    box(group, 0.04, 0.06, 0.3, darkMat, side * (type.width / 2 + 0.01), 0.95, type.length * 0.08, false);
   }
   // License plates, front and rear: white plates with dark text, so the
   // rear of the car carries a readable mark instead of bare paint.
@@ -171,41 +167,25 @@ export function createCarModel(typeName, color, rng) {
   // body colour: from the 3/4 chase cam it has to read as a wing, not a
   // thin dark line lost against the rear window.
   if (isFast) {
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.95, 0.09, 0.55), bodyMat);
-    wing.position.set(0, 1.22, -type.length / 2 + 0.18);
-    group.add(wing);
+    box(group, type.width * 0.95, 0.09, 0.55, bodyMat, 0, 1.22, -type.length / 2 + 0.18, false);
     for (const side of [-1, 1]) {
-      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.36, 0.09), darkMat);
-      strut.position.set(side * (type.width / 2 - 0.32), 1.0, -type.length / 2 + 0.18);
-      group.add(strut);
+      box(group, 0.09, 0.36, 0.09, darkMat, side * (type.width / 2 - 0.32), 1.0, -type.length / 2 + 0.18, false);
       // End plates: vertical fins at each wing tip, the classic GT look.
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.34, 0.6), darkMat);
-      plate.position.set(side * (type.width / 2 - 0.02), 1.2, -type.length / 2 + 0.18);
-      group.add(plate);
+      box(group, 0.05, 0.34, 0.6, darkMat, side * (type.width / 2 - 0.02), 1.2, -type.length / 2 + 0.18, false);
     }
     // Front splitter and side skirts: the fast cars sit low and wide, so
     // they read as sports cars from the chase cam, not plain boxes.
-    const splitter = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.94, 0.12, 0.34), darkMat);
-    splitter.position.set(0, 0.2, type.length / 2 + 0.06);
-    group.add(splitter);
+    box(group, type.width * 0.94, 0.12, 0.34, darkMat, 0, 0.2, type.length / 2 + 0.06, false);
     for (const side of [-1, 1]) {
-      const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, type.length * 0.62), darkMat);
-      skirt.position.set(side * (type.width / 2 + 0.02), 0.24, 0);
-      group.add(skirt);
+      box(group, 0.1, 0.14, type.length * 0.62, darkMat, side * (type.width / 2 + 0.02), 0.24, 0, false);
       // Side air intake behind the front door, so the flank isn't blank.
-      const intake = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.5), darkMat);
-      intake.position.set(side * (type.width / 2 + 0.01), 0.62, -type.length * 0.08);
-      group.add(intake);
+      box(group, 0.06, 0.22, 0.5, darkMat, side * (type.width / 2 + 0.01), 0.62, -type.length * 0.08, false);
     }
     // Rear diffuser with vertical fins, low at the back — the rear face
     // gets a second dark layer below the bumper so it isn't one flat wall.
-    const diffuser = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.82, 0.2, 0.3), darkMat);
-    diffuser.position.set(0, 0.18, -type.length / 2 - 0.02);
-    group.add(diffuser);
+    box(group, type.width * 0.82, 0.2, 0.3, darkMat, 0, 0.18, -type.length / 2 - 0.02, false);
     for (const fx of [-0.5, -0.17, 0.17, 0.5]) {
-      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.3), darkMat);
-      fin.position.set(fx * type.width * 0.8, 0.16, -type.length / 2 - 0.04);
-      group.add(fin);
+      box(group, 0.05, 0.2, 0.3, darkMat, fx * type.width * 0.8, 0.16, -type.length / 2 - 0.04, false);
     }
     // Twin exhaust tips, chrome and oversized, poking out of the diffuser.
     const exhaustGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.26, 10);
@@ -217,38 +197,24 @@ export function createCarModel(typeName, color, rng) {
     }
     // Raised hood panel with a centre ridge, so the front reads sculpted
     // from the 3/4 angle instead of a flat slab.
-    const hood = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.78, 0.07, type.length * 0.3), bodyMat);
-    hood.position.set(0, 0.9, type.length * 0.26);
-    group.add(hood);
-    const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, type.length * 0.28), bodyMat);
-    ridge.position.set(0, 0.93, type.length * 0.26);
-    group.add(ridge);
+    box(group, type.width * 0.78, 0.07, type.length * 0.3, bodyMat, 0, 0.9, type.length * 0.26, false);
+    box(group, 0.16, 0.08, type.length * 0.28, bodyMat, 0, 0.93, type.length * 0.26, false);
     // Roof antenna fin on the hero car.
-    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.4), darkMat);
-    fin.position.set(0, 1.56, -type.length * 0.22);
-    group.add(fin);
+    box(group, 0.08, 0.22, 0.4, darkMat, 0, 1.56, -type.length * 0.22, false);
     // Two-tone white roof: the hero car reads bright from behind and
     // above, not as a dark slab.
-    const whiteRoof = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.88, 0.06, type.length * 0.44), new THREE.MeshLambertMaterial({ color: 0xf2f2ee }));
-    whiteRoof.position.set(0, 1.5, -type.length * 0.05);
-    group.add(whiteRoof);
+    box(group, type.width * 0.88, 0.06, type.length * 0.44, new THREE.MeshLambertMaterial({ color: 0xf2f2ee }), 0, 1.5, -type.length * 0.05, false);
     // Rear light strip: a glowing bar across the back, so the car reads
     // from behind at dusk. Brighter than before, and it flares on braking.
     stripMat = new THREE.MeshLambertMaterial({ color: 0xff5e8a, emissive: 0xff2e88, emissiveIntensity: 2.0 });
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.92, 0.16, 0.06), stripMat);
-    strip.position.set(0, 0.66, -type.length / 2 - 0.02);
-    group.add(strip);
+    box(group, type.width * 0.92, 0.16, 0.06, stripMat, 0, 0.66, -type.length / 2 - 0.02, false);
   }
   if (typeName === 'muscle') {
-    const scoop = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.16, 0.9), darkMat);
-    scoop.position.set(0, 0.92, type.length * 0.16);
-    group.add(scoop);
+    box(group, 0.7, 0.16, 0.9, darkMat, 0, 0.92, type.length * 0.16, false);
   }
   // Pickup bed instead of a closed cabin.
   if (typeName === 'pickup') {
-    const bed = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.86, 0.3, type.length * 0.32), darkMat);
-    bed.position.set(0, 0.95, -type.length * 0.28);
-    group.add(bed);
+    box(group, type.width * 0.86, 0.3, type.length * 0.32, darkMat, 0, 0.95, -type.length * 0.28, false);
   }
 
   // Convertible: open top — a raked windshield, a roll bar and two seats
@@ -259,45 +225,24 @@ export function createCarModel(typeName, color, rng) {
     windshield.rotation.x = -0.28;
     group.add(windshield);
     for (const side of [-1, 1]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), darkMat);
-      post.position.set(side * (type.width / 2 - 0.3), 1.2, -type.length * 0.16);
-      group.add(post);
+      box(group, 0.08, 0.5, 0.08, darkMat, side * (type.width / 2 - 0.3), 1.2, -type.length * 0.16, false);
+      box(group, 0.55, 0.55, 0.45, darkMat, side * 0.42, 0.95, -type.length * 0.06, false);
+      box(group, 0.3, 0.22, 0.14, darkMat, side * 0.42, 1.32, -type.length * 0.14, false);
     }
-    const rollBar = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.8, 0.08, 0.1), darkMat);
-    rollBar.position.set(0, 1.46, -type.length * 0.16);
-    group.add(rollBar);
-    for (const side of [-1, 1]) {
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.45), darkMat);
-      seat.position.set(side * 0.42, 0.95, -type.length * 0.06);
-      group.add(seat);
-      const headrest = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.22, 0.14), darkMat);
-      headrest.position.set(side * 0.42, 1.32, -type.length * 0.14);
-      group.add(headrest);
-    }
+    box(group, type.width * 0.8, 0.08, 0.1, darkMat, 0, 1.46, -type.length * 0.16, false);
   } else if (typeName === 'truck') {
     // Small box truck: a tall cab up front, a cargo box behind it.
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.92, 1.0, type.length * 0.26), bodyMat);
-    cab.position.set(0, 1.15, type.length * 0.3);
-    cab.castShadow = true;
-    group.add(cab);
+    box(group, type.width * 0.92, 1.0, type.length * 0.26, bodyMat, 0, 1.15, type.length * 0.3, true);
     const cabGlass = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.8, 0.5, 0.06), glassMat);
     cabGlass.position.set(0, 1.35, type.length * 0.44);
     group.add(cabGlass);
-    const cargo = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.96, 1.7, type.length * 0.52), new THREE.MeshLambertMaterial({ color: 0xe8e8e2 }));
-    cargo.position.set(0, 1.35, -type.length * 0.16);
-    cargo.castShadow = true;
-    group.add(cargo);
+    box(group, type.width * 0.96, 1.7, type.length * 0.52, new THREE.MeshLambertMaterial({ color: 0xe8e8e2 }), 0, 1.35, -type.length * 0.16, true);
     // Coloured stripe along the cargo box so the truck isn't a white slab.
     for (const side of [-1, 1]) {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, type.length * 0.5), new THREE.MeshLambertMaterial({ color: paint }));
-      stripe.position.set(side * (type.width / 2 + 0.01), 1.5, -type.length * 0.16);
-      group.add(stripe);
+      box(group, 0.04, 0.3, type.length * 0.5, new THREE.MeshLambertMaterial({ color: paint }), side * (type.width / 2 + 0.01), 1.5, -type.length * 0.16, false);
     }
   } else {
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.82, 0.55, type.length * 0.48), glassMat);
-    cabin.position.set(0, 1.1, -type.length * 0.05);
-    cabin.castShadow = true;
-    group.add(cabin);
+    box(group, type.width * 0.82, 0.55, type.length * 0.48, glassMat, 0, 1.1, -type.length * 0.05, true);
   }
 
   // Headlights and taillights, oversized on purpose: at 1280x720 a 0.34 m
@@ -306,6 +251,7 @@ export function createCarModel(typeName, color, rng) {
   const lightGeo = new THREE.BoxGeometry(0.44, 0.2, 0.08);
   const headMat = new THREE.MeshLambertMaterial({ color: 0xfff6c8, emissive: 0xffe9a0, emissiveIntensity: 1.0 });
   const tailMat = new THREE.MeshLambertMaterial({ color: 0xcc2222, emissive: 0xaa1111, emissiveIntensity: 1.0 });
+  const indicatorMat = new THREE.MeshLambertMaterial({ color: 0xffaa22, emissive: 0xff9911, emissiveIntensity: 0.8 });
   for (const side of [-1, 1]) {
     const head = new THREE.Mesh(lightGeo, headMat);
     head.position.set(side * (type.width / 2 - 0.32), 0.64, type.length / 2);
@@ -314,9 +260,10 @@ export function createCarModel(typeName, color, rng) {
     tail.position.set(side * (type.width / 2 - 0.32), 0.64, -type.length / 2);
     group.add(tail);
     // Fog lamps low in the front bumper.
-    const fog = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.06), headMat);
-    fog.position.set(side * (type.width / 2 - 0.42), 0.36, type.length / 2 + 0.04);
-    group.add(fog);
+    box(group, 0.2, 0.12, 0.06, headMat, side * (type.width / 2 - 0.42), 0.36, type.length / 2 + 0.04, false);
+    // Amber turn indicators beside the headlights, so the front face has
+    // a third lamp colour instead of just white and chrome.
+    box(group, 0.16, 0.14, 0.06, indicatorMat, side * (type.width / 2 - 0.62), 0.62, type.length / 2 + 0.02, false);
   }
 
   // Police light bar, two-tone doors and push bar.
@@ -324,9 +271,7 @@ export function createCarModel(typeName, color, rng) {
   if (typeName === 'police') {
     // White door panels over the black body, with SBPD on the side.
     for (const side of [-1, 1]) {
-      const door = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, type.length * 0.42), new THREE.MeshLambertMaterial({ color: 0xe8e8e8 }));
-      door.position.set(side * (type.width / 2 + 0.01), 0.6, 0);
-      group.add(door);
+      box(group, 0.04, 0.5, type.length * 0.42, new THREE.MeshLambertMaterial({ color: 0xe8e8e8 }), side * (type.width / 2 + 0.01), 0.6, 0, false);
       const decal = new THREE.Mesh(
         new THREE.PlaneGeometry(1.5, 0.56),
         new THREE.MeshBasicMaterial({ map: makeDoorTextTexture('SBPD'), transparent: true }),
@@ -335,34 +280,20 @@ export function createCarModel(typeName, color, rng) {
       decal.rotation.y = side * Math.PI / 2;
       group.add(decal);
     }
-    const pushBar = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.7, 0.3, 0.14), darkMat);
-    pushBar.position.set(0, 0.5, type.length / 2 + 0.12);
-    group.add(pushBar);
+    box(group, type.width * 0.7, 0.3, 0.14, darkMat, 0, 0.5, type.length / 2 + 0.12, false);
     // White roof panel: the black-and-white livery reads from behind and
     // above, so a police car is never just a black box.
-    const roofPanel = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.88, 0.06, type.length * 0.5), new THREE.MeshLambertMaterial({ color: 0xe8e8e8 }));
-    roofPanel.position.set(0, 1.5, -type.length * 0.05);
-    group.add(roofPanel);
+    box(group, type.width * 0.88, 0.06, type.length * 0.5, new THREE.MeshLambertMaterial({ color: 0xe8e8e8 }), 0, 1.5, -type.length * 0.05, false);
     // Oversized light bar: the red/blue flash has to read from 60 m away.
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.2, 0.46), darkMat);
-    bar.position.set(0, 1.56, -type.length * 0.05);
-    group.add(bar);
+    box(group, 1.5, 0.2, 0.46, darkMat, 0, 1.56, -type.length * 0.05, false);
     const redMat = new THREE.MeshLambertMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 1.6 });
     const blueMat = new THREE.MeshLambertMaterial({ color: 0x2244ff, emissive: 0x0022ff, emissiveIntensity: 1.6 });
-    const red = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.26, 0.48), redMat);
-    red.position.set(-0.38, 1.56, -type.length * 0.05);
-    group.add(red);
-    const blue = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.26, 0.48), blueMat);
-    blue.position.set(0.38, 1.56, -type.length * 0.05);
-    group.add(blue);
+    box(group, 0.68, 0.26, 0.48, redMat, -0.38, 1.56, -type.length * 0.05, false);
+    box(group, 0.68, 0.26, 0.48, blueMat, 0.38, 1.56, -type.length * 0.05, false);
     // Rear deck flashers, same materials so they strobe in sync with the
     // roof bar: the police car has to read as police from behind too.
-    const rearRed = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 0.2), redMat);
-    rearRed.position.set(-0.45, 0.95, -type.length / 2 + 0.35);
-    group.add(rearRed);
-    const rearBlue = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 0.2), blueMat);
-    rearBlue.position.set(0.45, 0.95, -type.length / 2 + 0.35);
-    group.add(rearBlue);
+    box(group, 0.3, 0.16, 0.2, redMat, -0.45, 0.95, -type.length / 2 + 0.35, false);
+    box(group, 0.3, 0.16, 0.2, blueMat, 0.45, 0.95, -type.length / 2 + 0.35, false);
     // SBPD on the trunk, facing rear — the car ahead of you in a chase
     // needs to say who it is.
     const rearDecal = new THREE.Mesh(

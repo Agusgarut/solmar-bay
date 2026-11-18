@@ -15,20 +15,23 @@ export function createMinimap() {
     const ctx = cv.getContext('2d');
     const SIZE = cv.width;
     const SCALE = SIZE / (WORLD_HALF * 2);
-    const F = SIZE / 240; // symbol/font scale vs the 240 px HUD minimap
+    // Symbol and font sizes scale with the canvas, relative to the 240 px
+    // HUD minimap, so the big map is the same drawing, just larger.
+    const F = SIZE / 240;
 
     function toMap(x, z) {
       return [(x + WORLD_HALF) * SCALE, (z + WORLD_HALF) * SCALE];
     }
 
-    // Sea and land.
+    // Sea, land and beach: three vertical bands, east to west.
     ctx.fillStyle = '#1d4e63';
     ctx.fillRect(0, 0, SIZE, SIZE);
     ctx.fillStyle = '#233020';
     ctx.fillRect(0, 0, (SAND_X0 + WORLD_HALF) * SCALE, SIZE);
     ctx.fillStyle = '#c9b078';
     ctx.fillRect((SAND_X0 + WORLD_HALF) * SCALE, 0, (WATERLINE_X - SAND_X0) * SCALE, SIZE);
-    // Roads.
+
+    // Roads: one band per road line, both axes.
     ctx.fillStyle = '#3a3d42';
     for (const p of ROAD_POSITIONS) {
       const [x] = toMap(p, 0);
@@ -36,6 +39,7 @@ export function createMinimap() {
       const [, z] = toMap(0, p);
       ctx.fillRect(0, z - (ROAD_WIDTH / 2) * SCALE, SIZE, ROAD_WIDTH * SCALE);
     }
+
     // District names, so the map reads as the city, not a bare grid.
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.font = `bold ${Math.round(10 * F)}px system-ui, sans-serif`;
@@ -44,6 +48,7 @@ export function createMinimap() {
       const [x, z] = toMap((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2);
       ctx.fillText(d.name.toUpperCase(), x, z);
     }
+
     // Traffic dots.
     ctx.fillStyle = '#c8c8c8';
     const dot = Math.max(2, Math.round(2 * F));
@@ -51,6 +56,7 @@ export function createMinimap() {
       const [x, z] = toMap(car.x, car.z);
       ctx.fillRect(x - dot / 2, z - dot / 2, dot, dot);
     }
+
     // Police dots.
     ctx.fillStyle = '#ff4444';
     for (const car of state.copCars) {
@@ -59,6 +65,7 @@ export function createMinimap() {
       ctx.arc(x, z, 3 * F, 0, Math.PI * 2);
       ctx.fill();
     }
+
     // Mission target diamond.
     if (state.missionTarget) {
       const [x, z] = toMap(state.missionTarget.x, state.missionTarget.z);
@@ -71,30 +78,39 @@ export function createMinimap() {
       ctx.closePath();
       ctx.fill();
     }
+
     // Landmarks: Solmar Tower (gold square), lighthouse (white) and the
     // ferris wheel (pink) — the map reads as the city, not just roads.
-    const [tx, tz] = toMap(0, -90);
-    ctx.fillStyle = '#ffd23b';
-    ctx.fillRect(tx - 3 * F, tz - 3 * F, 6 * F, 6 * F);
-    const [lx, lz] = toMap(335, -320);
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(lx, lz, 3 * F, 0, Math.PI * 2);
-    ctx.fill();
-    const [wx, wz] = toMap(322, 120);
-    ctx.fillStyle = '#ff5e8a';
-    ctx.beginPath();
-    ctx.arc(wx, wz, 4 * F, 0, Math.PI * 2);
-    ctx.fill();
+    const landmarks = [
+      { x: 0, z: -90, color: '#ffd23b', size: 3, circle: false },
+      { x: 335, z: -320, color: '#ffffff', size: 3, circle: true },
+      { x: 322, z: 120, color: '#ff5e8a', size: 4, circle: true },
+    ];
+    for (const mark of landmarks) {
+      const [x, z] = toMap(mark.x, mark.z);
+      ctx.fillStyle = mark.color;
+      if (mark.circle) {
+        ctx.beginPath();
+        ctx.arc(x, z, mark.size * F, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(x - mark.size * F, z - mark.size * F, mark.size * 2 * F, mark.size * 2 * F);
+      }
+    }
+
     // Compass: N at the top edge.
     ctx.fillStyle = '#ffffff';
     ctx.font = `bold ${Math.round(13 * F)}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText('N', SIZE / 2, 14 * F);
-    // Player view cone: a faint wedge showing where Dani looks.
-    const [px2, pz2] = toMap(state.playerX, state.playerZ);
+
+    // Player view cone: a faint wedge showing where Dani looks, then the
+    // player arrow, rotated to the heading. Canvas Y points down, so the
+    // arrow needs PI - heading to point along the world forward vector
+    // (sin h, cos h).
+    const [px, pz] = toMap(state.playerX, state.playerZ);
     ctx.save();
-    ctx.translate(px2, pz2);
+    ctx.translate(px, pz);
     ctx.rotate(Math.PI - state.heading);
     ctx.fillStyle = 'rgba(255,255,255,0.14)';
     ctx.beginPath();
@@ -103,14 +119,6 @@ export function createMinimap() {
     ctx.lineTo(18 * F, -44 * F);
     ctx.closePath();
     ctx.fill();
-    ctx.restore();
-    // Player arrow, rotated to the heading.
-    const [px, pz] = toMap(state.playerX, state.playerZ);
-    ctx.save();
-    ctx.translate(px, pz);
-    // Canvas Y points down, so the arrow needs PI - heading to point
-    // along the world forward vector (sin h, cos h).
-    ctx.rotate(Math.PI - state.heading);
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.moveTo(0, -8 * F);

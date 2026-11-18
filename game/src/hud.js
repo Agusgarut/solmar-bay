@@ -1,7 +1,8 @@
 // The HUD: health, money, wanted stars, speed, the mission tracker panel,
 // the police dispatch list, the radio card, dialogue subtitles, the mission
 // banner, and the title / pause / game-over screens. All DOM, updated from
-// the game state each frame.
+// the game state each frame. The per-frame update is split into one helper
+// per panel, so each corner of the screen has exactly one place to change.
 
 export function createHud() {
   const root = document.getElementById('hud');
@@ -107,6 +108,153 @@ export function createHud() {
     crosshair.classList.toggle('hidden', screen !== 'play');
   }
 
+  // Top-left vitals: health bar + number, armor bar + number, money.
+  function updateVitals(state) {
+    healthFill.style.width = `${Math.max(0, state.health)}%`;
+    healthFill.classList.toggle('low', state.health < 30);
+    healthText.textContent = `${Math.ceil(state.health)}`;
+    // Armor bar, earned from missions: absorbs damage before health.
+    armorFill.style.width = `${Math.max(0, state.armor || 0)}%`;
+    armorText.textContent = `${Math.ceil(state.armor || 0)}`;
+    moneyText.textContent = `$${state.money.toLocaleString('en-US')}`;
+  }
+
+  // Top-right wanted corner: stars, the seen/safe line, weapon chips and
+  // the on-foot weapon slot.
+  function updateWanted(state) {
+    let stars = '';
+    for (let i = 0; i < 5; i += 1) stars += i < state.wanted ? '★' : '☆';
+    wantedEl.textContent = stars;
+    wantedEl.classList.toggle('hot', state.wanted > 0);
+    // Wanted state line, like the reference's "IN SIGHT" under the stars.
+    if (state.wanted > 0) {
+      wantedState.textContent = '● TERLIHAT';
+      wantedState.classList.remove('safe');
+    } else {
+      wantedState.textContent = '○ AMAN';
+      wantedState.classList.add('safe');
+    }
+    // Weapon chips under the stars: the equipped weapon is highlighted.
+    const hasPistol = state.weapon && state.weapon.name === 'pistol';
+    chipFists.classList.toggle('active', !hasPistol);
+    chipPistol.classList.toggle('active', !!hasPistol);
+    chipPistolLabel.textContent = `PISTOL ${state.weapon ? state.weapon.ammo : 0}`;
+    // Weapon slot, GTA-style: name + ammo, on foot only.
+    if (!state.inCar && state.weapon) {
+      weaponEl.textContent = state.weapon.name === 'pistol'
+        ? `PISTOL — ${state.weapon.ammo} PELURU` : 'TINJU';
+      weaponEl.classList.remove('hidden');
+    } else {
+      weaponEl.classList.add('hidden');
+    }
+  }
+
+  // Mission tracker panel: always visible, like the reference's always-on
+  // mission panel. During a mission it shows the active job; in free-roam
+  // it shows the next job; when all are done, the legend.
+  function updateMissionPanel(state) {
+    const mission = state.mission || null;
+    const next = !mission ? state.nextMission : null;
+    missionPanel.classList.remove('hidden');
+    if (mission) {
+      missionIndex.textContent = `MISI ${mission.index}/${mission.total}`;
+      missionIndex.classList.remove('next');
+      missionTimer.textContent = mission.timer || '';
+      missionChapter.textContent = mission.chapter || '';
+      missionTitle.textContent = mission.title;
+      missionObjective.textContent = mission.objective;
+      missionSub.textContent = mission.sub || '';
+      // Stage bar, like the reference's "STAGE 4/4" meter.
+      if (mission.stageTotal > 0) {
+        missionStage.classList.remove('hidden');
+        missionStageLabel.textContent = `STAGE ${mission.stage}/${mission.stageTotal}`;
+        missionStageFill.style.width = `${(mission.stage / mission.stageTotal) * 100}%`;
+      } else {
+        missionStage.classList.add('hidden');
+      }
+      missionNext.textContent = mission.next || '';
+    } else if (next) {
+      missionIndex.textContent = 'BERIKUTNYA';
+      missionIndex.classList.add('next');
+      missionTimer.textContent = '';
+      missionChapter.textContent = next.chapter || '';
+      missionTitle.textContent = next.title;
+      missionObjective.textContent = next.objective;
+      missionSub.textContent = '';
+      missionStage.classList.add('hidden');
+      missionNext.textContent = next.next || '';
+    } else {
+      missionIndex.textContent = 'SELESAI';
+      missionIndex.classList.add('next');
+      missionTimer.textContent = '';
+      missionChapter.textContent = 'SOLMAR BAY';
+      missionTitle.textContent = 'Legenda Solmar Bay';
+      missionObjective.textContent = 'Semua misi selesai! Kamu legenda kota ini.';
+      missionSub.textContent = '';
+      missionStage.classList.add('hidden');
+      missionNext.textContent = '';
+    }
+  }
+
+  // Police dispatch list, only while wanted. Rebuilt only when the list
+  // actually changes, so the DOM isn't churned every frame.
+  function updateDispatch(state) {
+    const dispatch = state.dispatch || [];
+    if (state.wanted > 0 && dispatch.length > 0) {
+      dispatchEl.classList.remove('hidden');
+      const key = dispatch.map((d) => `${d.unit}:${d.dist}:${d.status}`).join('|');
+      if (key === lastDispatchKey) return;
+      lastDispatchKey = key;
+      dispatchRows.innerHTML = '';
+      // At most 3 units, then a "+N more" line — the list must never
+      // grow down into the minimap.
+      for (const d of dispatch.slice(0, 3)) {
+        const row = document.createElement('div');
+        row.className = 'dispatch-row';
+        const statusClass = d.status === 'RAMMING' || d.status === 'ROADBLOCK'
+          ? 'dispatch-status ramming' : d.status === 'AIR SUPPORT' ? 'dispatch-status air'
+          : d.status === 'FOOT' ? 'dispatch-status foot' : 'dispatch-status pursuit';
+        row.innerHTML = `<span>${d.unit}</span><span class="dispatch-dist">${d.dist} m</span><span class="${statusClass}">${d.status}</span>`;
+        dispatchRows.appendChild(row);
+      }
+      if (dispatch.length > 3) {
+        const more = document.createElement('div');
+        more.className = 'dispatch-more';
+        more.textContent = `+${dispatch.length - 3} unit lagi di lokasi`;
+        dispatchRows.appendChild(more);
+      }
+    } else {
+      dispatchEl.classList.add('hidden');
+      lastDispatchKey = '';
+    }
+  }
+
+  // Bottom-right: radio card (station + track + car + condition bar) and
+  // the big speed readout; bottom-left: minimap label + respect meter.
+  function updateRadioAndMap(state) {
+    if (state.radio) {
+      radioEl.classList.remove('hidden');
+      radioStation.textContent = `${state.radio.name} ${state.radio.freq}`;
+      radioTrack.textContent = state.radio.track;
+    }
+    radioCar.textContent = state.vehicle ? `${state.vehicle.name} · Kondisi ${Math.max(0, Math.round(state.vehicle.condition))}%` : '';
+    // Condition bar under the car name, like the reference's CONDITION meter.
+    if (state.vehicle) {
+      carCondition.classList.remove('hidden');
+      carConditionFill.style.width = `${Math.max(0, Math.min(100, state.vehicle.condition))}%`;
+    } else {
+      carCondition.classList.add('hidden');
+    }
+    // Speed, big, with km/h.
+    speedEl.innerHTML = state.inCar
+      ? `${Math.round(Math.abs(state.speed) * 3.6)} <small>km/h</small>` : '';
+    minimapLabel.textContent = state.street ? `${state.district.toUpperCase()} · ${state.street}` : state.district;
+    // Respect meter under the minimap: jobs done + heat earned.
+    const respect = Math.max(0, Math.min(100, state.respect || 0));
+    respectFill.style.width = `${respect}%`;
+    respectValue.textContent = `${respect}`;
+  }
+
   return {
     announce(message) {
       statusEl.textContent = message;
@@ -162,142 +310,18 @@ export function createHud() {
       this.announce(`${title}. ${text}`);
     },
     update(state) {
-      healthFill.style.width = `${Math.max(0, state.health)}%`;
-      healthFill.classList.toggle('low', state.health < 30);
-      healthText.textContent = `${Math.ceil(state.health)}`;
-      // Armor bar, earned from missions: absorbs damage before health.
-      armorFill.style.width = `${Math.max(0, state.armor || 0)}%`;
-      armorText.textContent = `${Math.ceil(state.armor || 0)}`;
-      moneyText.textContent = `$${state.money.toLocaleString('en-US')}`;
-      // Wanted stars: filled for the current level.
-      let stars = '';
-      for (let i = 0; i < 5; i += 1) stars += i < state.wanted ? '★' : '☆';
-      wantedEl.textContent = stars;
-      wantedEl.classList.toggle('hot', state.wanted > 0);
-      // Wanted state line, like the reference's "IN SIGHT" under the stars.
-      if (state.wanted > 0) {
-        wantedState.textContent = '● TERLIHAT';
-        wantedState.classList.remove('safe');
-      } else {
-        wantedState.textContent = '○ AMAN';
-        wantedState.classList.add('safe');
-      }
-      // Weapon chips under the stars: the equipped weapon is highlighted.
-      const hasPistol = state.weapon && state.weapon.name === 'pistol';
-      chipFists.classList.toggle('active', !hasPistol);
-      chipPistol.classList.toggle('active', !!hasPistol);
-      chipPistolLabel.textContent = `PISTOL ${state.weapon ? state.weapon.ammo : 0}`;
-      // Weapon slot, GTA-style: name + ammo, on foot only.
-      if (!state.inCar && state.weapon) {
-        weaponEl.textContent = state.weapon.name === 'pistol'
-          ? `PISTOL — ${state.weapon.ammo} PELURU` : 'TINJU';
-        weaponEl.classList.remove('hidden');
-      } else {
-        weaponEl.classList.add('hidden');
-      }
-      // Speed, big, with km/h.
-      speedEl.innerHTML = state.inCar
-        ? `${Math.round(Math.abs(state.speed) * 3.6)} <small>km/h</small>` : '';
+      updateVitals(state);
+      updateWanted(state);
+      updateMissionPanel(state);
+      updateDispatch(state);
+      updateRadioAndMap(state);
       // The top-centre objective pill is retired: the always-on mission
       // tracker panel now carries the objective (active or next mission).
       objectiveEl.classList.add('hidden');
-      minimapLabel.textContent = state.street ? `${state.district.toUpperCase()} · ${state.street}` : state.district;
       crosshair.classList.toggle('hidden', !state.showCrosshair);
       const hours = Math.floor(state.timeOfDay);
       const minutes = Math.floor((state.timeOfDay - hours) * 60);
       clockEl.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-      // Mission tracker panel: always visible, like the reference's
-      // always-on mission panel. During a mission it shows the active job;
-      // in free-roam it shows the next job; when all are done, the legend.
-      const mission = state.mission || null;
-      const next = !mission ? state.nextMission : null;
-      missionPanel.classList.remove('hidden');
-      if (mission) {
-        missionIndex.textContent = `MISI ${mission.index}/${mission.total}`;
-        missionIndex.classList.remove('next');
-        missionTimer.textContent = mission.timer || '';
-        missionChapter.textContent = mission.chapter || '';
-        missionTitle.textContent = mission.title;
-        missionObjective.textContent = mission.objective;
-        missionSub.textContent = mission.sub || '';
-        // Stage bar, like the reference's "STAGE 4/4" meter.
-        if (mission.stageTotal > 0) {
-          missionStage.classList.remove('hidden');
-          missionStageLabel.textContent = `STAGE ${mission.stage}/${mission.stageTotal}`;
-          missionStageFill.style.width = `${(mission.stage / mission.stageTotal) * 100}%`;
-        } else {
-          missionStage.classList.add('hidden');
-        }
-        missionNext.textContent = mission.next || '';
-      } else if (next) {
-        missionIndex.textContent = 'BERIKUTNYA';
-        missionIndex.classList.add('next');
-        missionTimer.textContent = '';
-        missionChapter.textContent = next.chapter || '';
-        missionTitle.textContent = next.title;
-        missionObjective.textContent = next.objective;
-        missionSub.textContent = '';
-        missionStage.classList.add('hidden');
-        missionNext.textContent = next.next || '';
-      } else {
-        missionIndex.textContent = 'SELESAI';
-        missionIndex.classList.add('next');
-        missionTimer.textContent = '';
-        missionChapter.textContent = 'SOLMAR BAY';
-        missionTitle.textContent = 'Legenda Solmar Bay';
-        missionObjective.textContent = 'Semua misi selesai! Kamu legenda kota ini.';
-        missionSub.textContent = '';
-        missionStage.classList.add('hidden');
-        missionNext.textContent = '';
-      }
-      // Police dispatch list, only while wanted.
-      const dispatch = state.dispatch || [];
-      if (state.wanted > 0 && dispatch.length > 0) {
-        dispatchEl.classList.remove('hidden');
-        const key = dispatch.map((d) => `${d.unit}:${d.dist}:${d.status}`).join('|');
-        if (key !== lastDispatchKey) {
-          lastDispatchKey = key;
-          dispatchRows.innerHTML = '';
-          // At most 3 units, then a "+N more" line — the list must never
-          // grow down into the minimap.
-          for (const d of dispatch.slice(0, 3)) {
-            const row = document.createElement('div');
-            row.className = 'dispatch-row';
-            const statusClass = d.status === 'RAMMING' || d.status === 'ROADBLOCK'
-              ? 'dispatch-status ramming' : d.status === 'AIR SUPPORT' ? 'dispatch-status air'
-              : d.status === 'FOOT' ? 'dispatch-status foot' : 'dispatch-status pursuit';
-            row.innerHTML = `<span>${d.unit}</span><span class="dispatch-dist">${d.dist} m</span><span class="${statusClass}">${d.status}</span>`;
-            dispatchRows.appendChild(row);
-          }
-          if (dispatch.length > 3) {
-            const more = document.createElement('div');
-            more.className = 'dispatch-more';
-            more.textContent = `+${dispatch.length - 3} unit lagi di lokasi`;
-            dispatchRows.appendChild(more);
-          }
-        }
-      } else {
-        dispatchEl.classList.add('hidden');
-        lastDispatchKey = '';
-      }
-      // Radio card: station + track, and the car being driven.
-      if (state.radio) {
-        radioEl.classList.remove('hidden');
-        radioStation.textContent = `${state.radio.name} ${state.radio.freq}`;
-        radioTrack.textContent = state.radio.track;
-      }
-      radioCar.textContent = state.vehicle ? `${state.vehicle.name} · Kondisi ${Math.max(0, Math.round(state.vehicle.condition))}%` : '';
-      // Condition bar under the car name, like the reference's CONDITION meter.
-      if (state.vehicle) {
-        carCondition.classList.remove('hidden');
-        carConditionFill.style.width = `${Math.max(0, Math.min(100, state.vehicle.condition))}%`;
-      } else {
-        carCondition.classList.add('hidden');
-      }
-      // Respect meter under the minimap: jobs done + heat earned.
-      const respect = Math.max(0, Math.min(100, state.respect || 0));
-      respectFill.style.width = `${respect}%`;
-      respectValue.textContent = `${respect}`;
       // Red flash when the player just took damage.
       if (state.health < lastHealth) {
         damageEl.classList.remove('hidden');

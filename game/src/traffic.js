@@ -15,8 +15,9 @@ const TRAFFIC_MIX = [
   ['sport', 2], ['muscle', 2], ['pickup', 1],
   ['convertible', 1], ['truck', 1],
 ];
-const TRAFFIC_TYPES = TRAFFIC_MIX.map(([type]) => type);
 const TRAFFIC_SPEED = 13;
+const CAR_AHEAD_DIST = 11; // slow down when a car is this close ahead
+const CAR_AHEAD_CONE = 7; // ...and within this cone of the nose
 
 export function createTraffic(scene, rng, city) {
   const cars = [];
@@ -84,6 +85,33 @@ export function createTraffic(scene, rng, city) {
     return best;
   }
 
+  // Is another car right in front of `car` (close, and inside the nose
+  // cone)? Parked cars don't count — they are off the driving lane.
+  function blockedAhead(car, allCars) {
+    const aheadX = car.x + Math.sin(car.heading) * 8;
+    const aheadZ = car.z + Math.cos(car.heading) * 8;
+    for (const other of allCars) {
+      if (other === car || other.parked) continue;
+      if (distance2D(car.x, car.z, other.x, other.z) >= CAR_AHEAD_DIST) continue;
+      if (distance2D(aheadX, aheadZ, other.x, other.z) < CAR_AHEAD_CONE) return true;
+    }
+    return false;
+  }
+
+  // Traffic light state for the next major intersection ahead, if any.
+  // Returns 'stop' | 'slow' | null.
+  function lightAhead(axis, along, dirSign) {
+    for (const p of [-135, -45, 45, 135]) {
+      const ahead = (p - along) * dirSign;
+      if (ahead <= 1 || ahead >= 16) continue;
+      const state = city.lightForAxis(axis);
+      if (state === 'red') return 'stop';
+      if (state === 'yellow') return 'slow';
+      return null;
+    }
+    return null;
+  }
+
   function update(dt, allCars) {
     // Headlights glow as the light fades: dusk and night driving reads.
     const night = city.nightFactor ? city.nightFactor() : 0;
@@ -94,34 +122,9 @@ export function createTraffic(scene, rng, city) {
       const axis = movingAlongX ? 'x' : 'z';
       const along = movingAlongX ? car.x : car.z;
       const dirSign = movingAlongX ? Math.sign(Math.sin(car.heading)) : Math.sign(Math.cos(car.heading));
-      // Stop at a red traffic light when approaching a major intersection,
-      // slow down on yellow.
-      let lightStop = false;
-      let lightSlow = false;
-      for (const p of [-135, -45, 45, 135]) {
-        const ahead = (p - along) * dirSign;
-        if (ahead > 1 && ahead < 16) {
-          const state = city.lightForAxis(axis);
-          if (state === 'red') lightStop = true;
-          if (state === 'yellow') lightSlow = true;
-          break;
-        }
-      }
-      // Slow down for the car ahead.
-      let blocked = false;
-      for (const other of allCars) {
-        if (other === car || other.parked) continue;
-        const d = distance2D(car.x, car.z, other.x, other.z);
-        if (d < 11) {
-          const aheadX = car.x + Math.sin(car.heading) * 8;
-          const aheadZ = car.z + Math.cos(car.heading) * 8;
-          if (distance2D(aheadX, aheadZ, other.x, other.z) < 7) {
-            blocked = true;
-            break;
-          }
-        }
-      }
-      const target = blocked || lightStop ? 0 : lightSlow ? TRAFFIC_SPEED * 0.4 : TRAFFIC_SPEED;
+      const light = lightAhead(axis, along, dirSign);
+      const blocked = blockedAhead(car, allCars);
+      const target = blocked || light === 'stop' ? 0 : light === 'slow' ? TRAFFIC_SPEED * 0.4 : TRAFFIC_SPEED;
       car.speed += (target - car.speed) * Math.min(1, dt * 1.5);
       car.x += Math.sin(car.heading) * car.speed * dt;
       car.z += Math.cos(car.heading) * car.speed * dt;
