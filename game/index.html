@@ -144,20 +144,17 @@
   #speed { position: absolute; right: 16px; bottom: 12px; font-size: 64px; font-weight: 900; line-height: 1; }
   #speed small { font-size: 16px; font-weight: 700; opacity: .8; }
 
-  #minimap { position: absolute; left: 14px; bottom: 78px; width: 220px; height: 220px; border: 2px solid rgba(255,255,255,.4); border-radius: 50%; background: #1d4e63; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
-  #minimap-label { position: absolute; left: 14px; bottom: 72px; width: 220px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 1px; background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 6px; }
+  #minimap { position: absolute; left: 14px; bottom: 60px; width: 220px; height: 220px; border: 2px solid rgba(255,255,255,.4); border-radius: 50%; background: #1d4e63; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+  #minimap-label { position: absolute; left: 14px; bottom: 54px; width: 220px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 1px; background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 6px; }
   /* Vitals under the minimap, like the new reference: HEALTH + ARMOUR +
-     REP bars with numbers, so the bottom-left reads as one status block.
-     Four rows now (LEVEL joins them), so the minimap sits a little
-     higher and the rows a little tighter than before. */
+     REP bars with numbers, so the bottom-left reads as one status block. */
   #vitals { position: absolute; left: 14px; bottom: 8px; width: 220px; }
-  .vital-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .vital-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
   .vital-row .vital-name { font-size: 10px; letter-spacing: 1px; font-weight: 800; width: 46px; flex-shrink: 0; opacity: .9; }
   .vital-row .vital-value { font-size: 11px; font-weight: 800; width: 34px; text-align: right; flex-shrink: 0; }
   .vital-row .vital-value.wide { width: 52px; }
   #respect-bar { height: 8px; background: var(--bar-bg); border: 1px solid var(--border-faint); border-radius: 4px; overflow: hidden; flex: 1; }
   #respect-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ff9a3c, var(--gold)); }
-  #rep-title { flex: 1; font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* Dialogue / subtitle bar with a character card, bottom-centre like the
      reference: portrait + name + role, text beside it. */
@@ -224,7 +221,7 @@
     <div id="weapon" class="hidden">PISTOL · 24</div>
   </div>
   <div id="mission-panel" class="hidden">
-    <div id="mission-head"><span id="mission-index">MISI 1/7</span><span id="mission-timer"></span></div>
+    <div id="mission-head"><span id="mission-index">MISI 1/6</span><span id="mission-timer"></span></div>
     <div id="mission-chapter"></div>
     <div id="mission-title"></div>
     <div id="mission-objective"></div>
@@ -245,9 +242,9 @@
     <div id="weapon-row">
       <span class="weapon-chip active" id="chip-fists"><b>1</b><svg viewBox="0 0 24 16" width="18" height="12" aria-hidden="true"><rect x="1" y="4" width="10" height="10" rx="2" fill="currentColor" /><rect x="13" y="4" width="10" height="10" rx="2" fill="currentColor" /></svg>TINJU ∞</span>
       <span class="weapon-chip" id="chip-pistol"><b>2</b><svg viewBox="0 0 24 16" width="18" height="12" aria-hidden="true"><path d="M1 2h20v4h-8l-1.5 8H8l1.5-8H1z" fill="currentColor" /></svg><span id="chip-pistol-label">PISTOL 24</span></span>
-      <span class="weapon-chip locked" id="chip-smg"><b>3</b><svg viewBox="0 0 24 16" width="18" height="12" aria-hidden="true"><path d="M1 3h17v3h-6l-1 6H7l1-6H1z" fill="currentColor" /><rect x="14" y="9" width="3" height="5" fill="currentColor" /></svg><span id="chip-smg-label">SMG —</span></span>
-      <span class="weapon-chip locked" id="chip-rifle"><b>4</b><svg viewBox="0 0 24 16" width="18" height="12" aria-hidden="true"><path d="M1 6h22v3H9l-1 4H6l1-4H1z" fill="currentColor" /></svg><span id="chip-rifle-label">SENAPAN —</span></span>
-      <span class="weapon-chip locked" id="chip-sniper"><b>5</b><svg viewBox="0 0 24 16" width="18" height="12" aria-hidden="true"><path d="M1 6h22v3h-9l-1 4H6l1-4H1z" fill="currentColor" /><rect x="9" y="2" width="6" height="3" fill="currentColor" /></svg><span id="chip-sniper-label">SNIPER —</span></span>
+      <span class="weapon-chip locked"><b>3</b>—</span>
+      <span class="weapon-chip locked"><b>4</b>—</span>
+      <span class="weapon-chip locked"><b>5</b>—</span>
     </div>
   </div>
   <div id="objective"></div>
@@ -257,7 +254,6 @@
     <div class="vital-row"><span class="vital-name">HEALTH</span><div id="health-bar"><div id="health-fill"></div></div><span class="vital-value" id="health-text">100</span></div>
     <div class="vital-row"><span class="vital-name">ARMOUR</span><div id="armor-bar"><div id="armor-fill"></div></div><span class="vital-value" id="armor-text">0</span></div>
     <div class="vital-row"><span class="vital-name">REP</span><div id="respect-bar"><div id="respect-fill"></div></div><span class="vital-value wide" id="respect-value">0 / 100</span></div>
-    <div class="vital-row"><span class="vital-name">LEVEL</span><span id="rep-title">PEMAIN BARU</span><span class="vital-value" id="rep-level">REP 1</span></div>
   </div>
   <div id="radio">
     <div id="radio-station">SOLMAR FM 101.9</div>
@@ -297,8 +293,8 @@
   <div class="game-subtitle">Selamat datang di Solmar Bay</div>
   <p class="game-tagline">Dani Reyes, sopir kurir yang terseret ke dunia kriminal kota pantai ini.
   Curi mobil, kabur dari polisi dan helikopter, dengerin radio Solmar FM,
-  selesaikan 7 misi — dan kuasai jalanan saat matahari terbenam.</p>
-  <div class="title-chips"><span>7 MISI</span><span>POLISI &amp; HELIKOPTER</span><span>RADIO 3 STASIUN</span><span>OPEN WORLD</span></div>
+  selesaikan 6 misi — dan kuasai jalanan saat matahari terbenam.</p>
+  <div class="title-chips"><span>6 MISI</span><span>POLISI &amp; HELIKOPTER</span><span>RADIO 3 STASIUN</span><span>OPEN WORLD</span></div>
   <button class="big-btn" onclick="document.getElementById('game').dispatchEvent(new PointerEvent('pointerdown', {button: 0}))">▶ MULAI MAIN</button>
   <div class="controls">
     WASD — jalan / nyetir &nbsp;·&nbsp; Shift — lari &nbsp;·&nbsp; Spasi — lompat<br>

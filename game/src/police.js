@@ -7,12 +7,9 @@ import * as THREE from 'three';
 import { HELI_MIN_WANTED, MAX_WANTED, WANTED_DECAY_SECONDS, ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, clamp, distance2D } from './config.js';
 import { createCarModel, Car } from './vehicles.js';
 import { createPlayerCharacter } from './player.js';
-import { HELI_CALLSIGN } from './chase.js';
 
-// Callsigns for the dispatch list the HUD shows — original SBPD names,
-// never the ones from the reference image (no GULL, MARLIN, SNAPPER
-// or TARPON: those belong to another game).
-const UNIT_CALLSIGNS = ['BARRACUDA-7', 'STINGRAY-3', 'MANTA-9', 'DOLPHIN-5'];
+// Callsigns for the dispatch list the HUD shows.
+const UNIT_CALLSIGNS = ['SBPD-12', 'SBPD-27', 'SBPD-31', 'SBPD-44'];
 
 // One helper for helicopter parts: a box (or any geometry) placed in the
 // group, optionally casting a shadow.
@@ -29,7 +26,7 @@ function createHelicopter(scene) {
   // Scaled up 25%: at wanted 3+ the chopper has to dominate the sky in
   // the chase frame, not hide as a speck between the towers.
   group.scale.setScalar(1.25);
-  const bodyMat = new THREE.MeshLambertMaterial({ color: 0xe8eef4 });
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1c2f4a });
   const darkMat = new THREE.MeshLambertMaterial({ color: 0x14161a });
   const glassMat = new THREE.MeshLambertMaterial({ color: 0x9fc4d8 });
 
@@ -52,20 +49,15 @@ function createHelicopter(scene) {
   for (const side of [-1, 1]) {
     heliPart(group, new THREE.BoxGeometry(0.14, 0.14, 3.4), darkMat, side * 0.9, -0.95, 0, false);
   }
-  // Searchlight cone: the geometry is flipped once (apex down), so the
-  // chase director can aim it with a quaternion alone — no per-frame
-  // rotation bookkeeping. The beam lives in the scene, not the heli
-  // group: it stretches from the helicopter to the player, which the
-  // group's own rotation would fight. The chase director owns its
-  // position, aim and opacity every frame.
-  const beamGeo = new THREE.ConeGeometry(8, 34, 12, 1, true);
-  beamGeo.rotateX(Math.PI);
+  // Searchlight cone, aimed down; on from golden hour on, so the chase
+  // frame always has a visible beam sweeping the street.
   const beam = new THREE.Mesh(
-    beamGeo,
+    new THREE.ConeGeometry(8, 34, 12, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }),
   );
-  beam.visible = false;
-  scene.add(beam);
+  beam.position.y = -18;
+  beam.rotation.x = Math.PI;
+  group.add(beam);
   // Red beacon strobes on the mast so the chopper reads in the dusk sky.
   const beacon = new THREE.Mesh(
     new THREE.SphereGeometry(0.28, 8, 6),
@@ -74,7 +66,7 @@ function createHelicopter(scene) {
   beacon.position.set(0, 1.05, 0);
   group.add(beacon);
   scene.add(group);
-  return { group, rotor, rotor2, beam, beacon, angle: 0, spotting: false };
+  return { group, rotor, rotor2, beam, beacon, angle: 0 };
 }
 
 export function createPolice(scene, rng) {
@@ -129,7 +121,6 @@ export function createPolice(scene, rng) {
     for (const cop of [...footCops]) removeFootCop(cop);
     if (heli) {
       scene.remove(heli.group);
-      scene.remove(heli.beam);
       heli = null;
     }
     roadblockCar = null;
@@ -187,13 +178,12 @@ export function createPolice(scene, rng) {
     }
   }
 
-  // Helicopter at 3+ stars: circles the player, rotor spinning. The
-  // searchlight is aimed by the chase director (chase.js), not here.
+  // Helicopter at 3+ stars: circles the player, rotor spinning, and its
+  // searchlight comes on after dark.
   function updateHeli(dt, ctx, px, pz) {
     if (wanted >= HELI_MIN_WANTED && !heli) heli = createHelicopter(scene);
     if (wanted < HELI_MIN_WANTED - 1 && heli) {
       scene.remove(heli.group);
-      scene.remove(heli.beam);
       heli = null;
     }
     if (!heli) return;
@@ -206,6 +196,8 @@ export function createPolice(scene, rng) {
     heli.group.rotation.y = Math.atan2(px - hx, pz - hz);
     heli.rotor.rotation.y += dt * 22;
     heli.rotor2.rotation.y += dt * 22;
+    // Searchlight sweeps the player once dusk sets in.
+    heli.beam.visible = ctx.city.nightFactor() > 0.35;
     heli.beacon.material.emissiveIntensity = Math.floor(Date.now() / 400) % 2 === 0 ? 2.5 : 0.2;
   }
 
@@ -309,15 +301,9 @@ export function createPolice(scene, rng) {
     },
 
     // The dispatch list the HUD shows: unit callsign, distance in metres,
-    // and what it is doing right now. The helicopter goes first, like
-    // the reference's response panel: while its beam is on the player
-    // its status is SPOTLIGHT ON YOU, in red.
+    // and what it is doing right now.
     dispatchList(px, pz) {
       const list = [];
-      if (heli) {
-        const d = Math.round(distance2D(heli.group.position.x, heli.group.position.z, px, pz));
-        list.push({ unit: HELI_CALLSIGN, dist: d, status: heli.spotting ? 'SPOTLIGHT ON YOU' : 'AIR SUPPORT' });
-      }
       copCars.forEach((car, i) => {
         const d = Math.round(distance2D(car.x, car.z, px, pz));
         const status = car === roadblockCar ? 'ROADBLOCK' : d < 9 ? 'RAMMING' : 'PURSUIT';
@@ -327,6 +313,7 @@ export function createPolice(scene, rng) {
         const d = Math.round(distance2D(cop.x, cop.z, px, pz));
         list.push({ unit: `SBPD-F${i + 1}`, dist: d, status: 'FOOT' });
       });
+      if (heli) list.push({ unit: 'AIR-1', dist: Math.round(distance2D(heli.group.position.x, heli.group.position.z, px, pz)), status: 'AIR SUPPORT' });
       return list.slice(0, 5);
     },
 
