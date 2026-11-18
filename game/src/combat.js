@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { clamp, distance2D } from './config.js';
-import { createPlayerCharacter } from './player.js';
+import { createPlayerCharacter, applyDamage } from './player.js';
 
 export function createCombat(scene, rng) {
   const enemies = [];
@@ -172,7 +172,7 @@ export function createCombat(scene, rng) {
             ctx.effects.muzzle(from.x, from.y, from.z);
             const hitChance = 0.3 + Math.min(0.2, ctx.police.wanted * 0.03);
             if (rng() < hitChance && !player.inCar) {
-              player.health = clamp(player.health - 9, 0, 100);
+              applyDamage(player, 9);
               ctx.effects.blood(player.x, 1.2, player.z);
             }
           }

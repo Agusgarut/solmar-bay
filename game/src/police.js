@@ -13,6 +13,9 @@ const UNIT_CALLSIGNS = ['SBPD-12', 'SBPD-27', 'SBPD-31', 'SBPD-44'];
 
 function createHelicopter(scene) {
   const group = new THREE.Group();
+  // Scaled up 25%: at wanted 3+ the chopper has to dominate the sky in
+  // the chase frame, not hide as a speck between the towers.
+  group.scale.setScalar(1.25);
   const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1c2f4a });
   const darkMat = new THREE.MeshLambertMaterial({ color: 0x14161a });
   const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, 4.2), bodyMat);
@@ -34,15 +37,25 @@ function createHelicopter(scene) {
   const rotor2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 11), rotorMat);
   rotor2.position.y = 1.0;
   group.add(rotor2);
+  // Rotor blur disc: a translucent circle under the blades, so the rotor
+  // reads as a spinning blur instead of two thin sticks.
+  const blurDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(5.5, 24),
+    new THREE.MeshBasicMaterial({ color: 0x9aa0a8, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  blurDisc.rotation.x = -Math.PI / 2;
+  blurDisc.position.y = 1.0;
+  group.add(blurDisc);
   for (const side of [-1, 1]) {
     const skid = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 3.4), darkMat);
     skid.position.set(side * 0.9, -0.95, 0);
     group.add(skid);
   }
-  // Searchlight cone, aimed down; only visible after dark.
+  // Searchlight cone, aimed down; on from golden hour on, so the chase
+  // frame always has a visible beam sweeping the street.
   const beam = new THREE.Mesh(
-    new THREE.ConeGeometry(7, 34, 12, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.ConeGeometry(8, 34, 12, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }),
   );
   beam.position.y = -18;
   beam.rotation.x = Math.PI;
@@ -225,7 +238,7 @@ export function createPolice(scene, rng) {
         heli.rotor.rotation.y += dt * 22;
         heli.rotor2.rotation.y += dt * 22;
         // Searchlight sweeps the player once dusk sets in.
-        heli.beam.visible = ctx.city.nightFactor() > 0.45;
+        heli.beam.visible = ctx.city.nightFactor() > 0.35;
         heli.beacon.material.emissiveIntensity = Math.floor(Date.now() / 400) % 2 === 0 ? 2.5 : 0.2;
       }
 

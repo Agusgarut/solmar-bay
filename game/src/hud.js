@@ -7,6 +7,8 @@ export function createHud() {
   const root = document.getElementById('hud');
   const healthFill = document.getElementById('health-fill');
   const healthText = document.getElementById('health-text');
+  const armorFill = document.getElementById('armor-fill');
+  const armorText = document.getElementById('armor-text');
   const moneyText = document.getElementById('money');
   const wantedEl = document.getElementById('wanted');
   const weaponEl = document.getElementById('weapon');
@@ -150,16 +152,19 @@ export function createHud() {
       healthFill.style.width = `${Math.max(0, state.health)}%`;
       healthFill.classList.toggle('low', state.health < 30);
       healthText.textContent = `${Math.ceil(state.health)}`;
+      // Armor bar, earned from missions: absorbs damage before health.
+      armorFill.style.width = `${Math.max(0, state.armor || 0)}%`;
+      armorText.textContent = `${Math.ceil(state.armor || 0)}`;
       moneyText.textContent = `$${state.money.toLocaleString('en-US')}`;
       // Wanted stars: filled for the current level.
       let stars = '';
       for (let i = 0; i < 5; i += 1) stars += i < state.wanted ? '★' : '☆';
       wantedEl.textContent = stars;
       wantedEl.classList.toggle('hot', state.wanted > 0);
-      // Weapon + ammo, on foot only.
+      // Weapon slot, GTA-style: name + ammo, on foot only.
       if (!state.inCar && state.weapon) {
         weaponEl.textContent = state.weapon.name === 'pistol'
-          ? `PISTOL · ${state.weapon.ammo}` : 'TINJU';
+          ? `PISTOL — ${state.weapon.ammo} PELURU` : 'TINJU';
         weaponEl.classList.remove('hidden');
       } else {
         weaponEl.classList.add('hidden');

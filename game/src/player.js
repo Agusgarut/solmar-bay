@@ -76,6 +76,7 @@ export function createPlayer(scene) {
     moving: false,
     walkPhase: 0,
     health: 100,
+    armor: 0, // mission reward: absorbs damage before health does
     weapon: 'fists', // 'fists' | 'pistol'
     ammo: 24,
     inCar: null,
@@ -159,6 +160,14 @@ export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, playe
   let cx = focusX - Math.sin(yaw) * dist;
   let cz = focusZ - Math.cos(yaw) * dist;
   let cy = focusY + height;
+  // 3/4 chase view: in a car the camera sits off to the car's right-rear,
+  // so the frame shows the rear AND the flank — spoiler, rims, side intake
+  // — instead of a dead-on rectangle from behind. The lookAt stays on the
+  // car, so the car just shifts slightly left in the frame.
+  if (player.inCar) {
+    cx += -Math.cos(yaw) * 1.6;
+    cz += Math.sin(yaw) * 1.6;
+  }
   // Speed shake: a small random jitter at 100+ km/h in a car.
   if (player.inCar && Math.abs(player.inCar.speed) > 28) {
     const jitter = Math.min(0.16, (Math.abs(player.inCar.speed) - 28) * 0.008);
@@ -181,6 +190,13 @@ export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, playe
     camera.position.z += (cz - camera.position.z) * k;
   }
   camera.lookAt(focusX, focusY + (player.inCar ? 1.9 : 1.4), focusZ);
+}
+
+// Damage hits armor first, then health — the armor bar in the HUD is real.
+export function applyDamage(player, amount) {
+  const absorbed = Math.min(player.armor || 0, amount);
+  player.armor = (player.armor || 0) - absorbed;
+  player.health = clamp(player.health - (amount - absorbed), 0, 100);
 }
 
 export function clampCameraPitch(player, value) {

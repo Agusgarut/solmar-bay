@@ -7,10 +7,13 @@ import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, TRAFFIC_CARS, PARKED_CARS, clam
 import { createCarModel, Car } from './vehicles.js';
 import { pick, range, weighted } from './random.js';
 
-// Traffic mix by weight: sedans and taxis dominate, sports are rare.
+// Traffic mix by weight: sedans and taxis dominate, sports are rare,
+// convertibles and box trucks are rarer still — but they have to exist,
+// or every street reads as the same three silhouettes.
 const TRAFFIC_MIX = [
   ['sedan', 3], ['coupe', 2], ['taxi', 2], ['van', 1],
   ['sport', 2], ['muscle', 2], ['pickup', 1],
+  ['convertible', 1], ['truck', 1],
 ];
 const TRAFFIC_TYPES = TRAFFIC_MIX.map(([type]) => type);
 const TRAFFIC_SPEED = 13;

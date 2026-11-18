@@ -15,7 +15,7 @@ import { createAudio } from './audio.js';
 import { loadSave, writeSave } from './save.js';
 import { buildCity } from './city.js';
 import { createCarModel, Car } from './vehicles.js';
-import { createPlayer, updateCamera } from './player.js';
+import { createPlayer, updateCamera, applyDamage } from './player.js';
 import { createTraffic } from './traffic.js';
 import { createPedestrians } from './pedestrians.js';
 import { createPolice } from './police.js';
@@ -335,7 +335,7 @@ function updateGame(dt, scripted) {
     // Traffic can hit the player on foot.
     for (const car of traffic.cars) {
       if (distance2D(car.x, car.z, player.x, player.z) < 1.4 && Math.abs(car.speed) > 3) {
-        player.health = Math.max(0, player.health - 8);
+        applyDamage(player, 8);
         lastDamageAt = elapsed;
         car.speed *= 0.6;
         audio.crash();
@@ -378,6 +378,7 @@ function updateGame(dt, scripted) {
   const missionTarget = missions.current ? missions.objectiveSpot(missions.currentObjective()) : null;
   hud.update({
     health: player.health,
+    armor: player.armor,
     money: save.money,
     wanted: police.wanted,
     speed: player.inCar ? player.inCar.speed : 0,
@@ -502,6 +503,9 @@ function runShot(name) {
   if (staged.orbit) {
     camera.position.set(180, 60, 180);
     camera.lookAt(0, 18, 0);
+  } else if (staged.cameraPose) {
+    camera.position.set(...staged.cameraPose.pos);
+    camera.lookAt(...staged.cameraPose.look);
   }
   if (name === 'drive' || name === 'chase') {
     // Put two police cars ahead of the player, facing them, so the chase

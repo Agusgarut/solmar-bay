@@ -157,7 +157,10 @@ export function createMissions(scene) {
     ctx.save.money += mission.reward;
     ctx.save.missionsDone += 1;
     ctx.save.missionIndex = Math.min(current.index + 1, MISSIONS.length - 1);
-    ctx.hud.showToast(`Misi selesai: ${mission.title} — +$${mission.reward}`);
+    // Mission reward, GTA-style: cash plus armor, so the HUD armor bar is
+    // earned in play, not a dead widget.
+    ctx.player.armor = Math.min(100, (ctx.player.armor || 0) + 25);
+    ctx.hud.showToast(`Misi selesai: ${mission.title} — +$${mission.reward} · Armor +25`);
     if (mission.doneLine) ctx.hud.showDialogue(mission.doneLine.speaker, mission.doneLine.line, 5);
     ctx.audio.missionDone();
     ctx.saveData();

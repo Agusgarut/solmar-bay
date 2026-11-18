@@ -88,6 +88,37 @@ export function createPedestrians(scene, rng) {
     peds.push(ped);
   }
 
+  // A few people cross the street at the zebra crossings: they walk from
+  // one sidewalk to the other and back, so the crossings are never empty.
+  const CROSSINGS = [
+    { x: -45, z: -45 }, { x: 45, z: -45 }, { x: -45, z: 45 }, { x: 45, z: 45 },
+    { x: -135, z: 45 }, { x: 135, z: -45 }, { x: -45, z: 135 }, { x: 45, z: -135 },
+  ];
+  for (const c of CROSSINGS) {
+    const model = createPedModel(rng);
+    scene.add(model);
+    const acrossX = rng() < 0.5;
+    const side = rng() < 0.5 ? 1 : -1;
+    const from = acrossX
+      ? { x: c.x + side * (ROAD_WIDTH / 2 + 2.5), z: c.z }
+      : { x: c.x, z: c.z + side * (ROAD_WIDTH / 2 + 2.5) };
+    const to = acrossX
+      ? { x: c.x - side * (ROAD_WIDTH / 2 + 2.5), z: c.z }
+      : { x: c.x, z: c.z - side * (ROAD_WIDTH / 2 + 2.5) };
+    const ped = {
+      model,
+      x: from.x, z: from.z,
+      heading: Math.atan2(to.x - from.x, to.z - from.z),
+      speed: range(rng, 1.4, 2.0),
+      walkPhase: rng() * 6,
+      fleeing: false, fleeTimer: 0, dead: false,
+      crossing: true, crossFrom: from, crossTo: to,
+    };
+    model.position.set(ped.x, 0, ped.z);
+    model.rotation.y = ped.heading;
+    peds.push(ped);
+  }
+
   function nearestRoadCoord(value) {
     let best = ROAD_POSITIONS[0];
     for (const p of ROAD_POSITIONS) {
@@ -127,13 +158,25 @@ export function createPedestrians(scene, rng) {
         }
         if (ped.fleeing) {
           ped.fleeTimer -= dt;
-          if (ped.fleeTimer <= 0) ped.fleeing = false;
+          if (ped.fleeTimer <= 0) {
+            ped.fleeing = false;
+            // A crossing pedestrian goes back to the zebra after fleeing.
+            if (ped.crossing) ped.heading = Math.atan2(ped.crossTo.x - ped.x, ped.crossTo.z - ped.z);
+          }
         }
         const speed = ped.fleeing ? 5.5 : ped.speed;
         ped.x += Math.sin(ped.heading) * speed * dt;
         ped.z += Math.cos(ped.heading) * speed * dt;
-        // Turn at intersections so they keep wandering the sidewalks.
-        if (!ped.fleeing) {
+        // Crossing pedestrians turn around at the far sidewalk and walk
+        // back; everyone else turns at intersections to keep wandering.
+        if (ped.crossing && !ped.fleeing) {
+          if (distance2D(ped.x, ped.z, ped.crossTo.x, ped.crossTo.z) < 1.2) {
+            const tmp = ped.crossFrom;
+            ped.crossFrom = ped.crossTo;
+            ped.crossTo = tmp;
+            ped.heading = Math.atan2(ped.crossTo.x - ped.x, ped.crossTo.z - ped.z);
+          }
+        } else if (!ped.fleeing) {
           const movingAlongX = Math.abs(Math.sin(ped.heading)) > 0.9;
           const along = movingAlongX ? ped.x : ped.z;
           const near = nearestRoadCoord(along);

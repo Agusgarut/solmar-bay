@@ -138,7 +138,7 @@ export function buildCity(scene, rng) {
   // Geometries are pre-rotated flat (rotateY turns a road along X into one
   // along Z), so no per-mesh Euler guesswork is needed.
   const roadTexture = makeRoadTexture();
-  const roadMat = new THREE.MeshLambertMaterial({ map: roadTexture, emissive: 0xffc08a, emissiveIntensity: 0 });
+  const roadMat = new THREE.MeshPhongMaterial({ map: roadTexture, emissive: 0xffc08a, emissiveIntensity: 0, shininess: 26, specular: 0x8a6a4a });
   const walkMat = new THREE.MeshLambertMaterial({ color: PALETTE.sidewalk });
   const roadGeoX = new THREE.PlaneGeometry(WORLD_HALF * 2, ROAD_WIDTH);
   roadGeoX.rotateX(-Math.PI / 2);
@@ -764,6 +764,36 @@ export function buildCity(scene, rng) {
   const skyNightTint = new THREE.Color(0x1a2438);
   const skyWhite = new THREE.Color(0xffffff);
 
+  // Thin golden-hour clouds: soft sprites drifting high above the city,
+  // warm-tinted so the sky isn't one flat gradient. Sprites always face
+  // the camera, so a handful of them reads as cloud cover from any angle.
+  const cloudCanvas = document.createElement('canvas');
+  cloudCanvas.width = 256;
+  cloudCanvas.height = 128;
+  const cloudG = cloudCanvas.getContext('2d');
+  for (const [cx, cy, r] of [[70, 70, 46], [120, 78, 52], [180, 70, 44], [100, 55, 34], [155, 55, 32]]) {
+    const grad = cloudG.createRadialGradient(cx, cy, 4, cx, cy, r);
+    grad.addColorStop(0, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    cloudG.fillStyle = grad;
+    cloudG.fillRect(0, 0, 256, 128);
+  }
+  const cloudTex = new THREE.CanvasTexture(cloudCanvas);
+  cloudTex.colorSpace = THREE.SRGBColorSpace;
+  const clouds = [];
+  for (let i = 0; i < 10; i += 1) {
+    const mat = new THREE.SpriteMaterial({ map: cloudTex, color: 0xffd9b0, transparent: true, opacity: 0.4, depthWrite: false, fog: false });
+    const sprite = new THREE.Sprite(mat);
+    const sx = -500 + (i * 113) % 1000;
+    const sy = 135 + (i * 37) % 55;
+    const sz = -480 + (i * 197) % 960;
+    sprite.position.set(sx, sy, sz);
+    sprite.scale.set(150 + (i % 3) * 55, 42 + (i % 2) * 18, 1);
+    sprite.userData.baseOpacity = 0.3 + (i % 3) * 0.1;
+    scene.add(sprite);
+    clouds.push(sprite);
+  }
+
   const skyDay = new THREE.Color(PALETTE.skyDay);
   const skySunset = new THREE.Color(PALETTE.skySunset);
   const skyGolden = new THREE.Color(PALETTE.skyGolden);
@@ -843,6 +873,12 @@ export function buildCity(scene, rng) {
     // The asphalt catches a little of it too, so the road reads sunlit
     // warm tan, never black — and never flat orange.
     roadMat.emissiveIntensity = sunsetFactor * 0.12;
+    // Clouds drift slowly across the sky and fade out at night.
+    for (const cloud of clouds) {
+      cloud.position.x += dt * 1.2;
+      if (cloud.position.x > 620) cloud.position.x = -620;
+      cloud.material.opacity = cloud.userData.baseOpacity * clamp(dayFactor + sunsetFactor * 0.4, 0.08, 1);
+    }
     // Traffic light lamps follow the cycle.
     for (const head of lightHeads) {
       const state = lightForAxis(head.axis);

@@ -33,11 +33,25 @@ export function stageShot(name, ctx) {
   ctx.player.place(spawn.x, spawn.z, spawn.heading);
 
   if (name === 'start') {
-    // Title screen over the city at sunset: the camera orbits downtown.
+    // Title screen: a cinematic poster frame — the pink hero car in the
+    // lower right, low 3/4 rear view, downtown's golden-hour towers ahead.
     ctx.setState('title');
     ctx.hud.showTitle();
+    const heroModel = createCarModel('sport', 0xff2e88, ctx.rng);
+    ctx.scene.add(heroModel);
+    const heroCar = new Car(heroModel, 'sport');
+    heroCar.driver = null;
+    heroCar.parked = true;
+    heroCar.place(130, 48.5, Math.PI / 2);
+    ctx.traffic.parked.push(heroCar);
     ctx.player.cameraYaw = Math.PI * 0.75;
-    return { simulateSeconds: 0, throttle: 0, steer: 0, orbit: true };
+    return {
+      simulateSeconds: 0, throttle: 0, steer: 0, orbit: false,
+      // Low and close behind the car (12 m): the pink hero fills the
+      // lower-right of the frame, big enough to read spoiler, plate and
+      // rims, clear of the centred title text and button.
+      cameraPose: { pos: [120, 2.8, 41.5], look: [148, 1.5, 49] },
+    };
   }
 
   ctx.setState('play');
@@ -108,6 +122,13 @@ export function stageShot(name, ctx) {
     stageCar(130, 3.5, 'coupe', 0xffe14f);
     stageCar(160, 3.5, 'van', 0xd8d8d8);
     stageCar(190, 3.5, 'sedan', 0xff3b30);
+    // Foreground traffic: a convertible in the player's own lane 45 m out
+    // (it pulls away during the sim and ends ~18 m ahead) and a box truck
+    // coming the other way — the round-3 drive shot's foreground was an
+    // empty road, and the reference is busy bumper to bumper.
+    stageCar(45, -3.5, 'convertible', 0xffe14f);
+    stageCar(78, -3.5, 'sedan', 0xff3b30);
+    stageCar(88, 3.5, 'truck', 0x2ec4b6);
     // A few pedestrians on the sidewalks beside the car.
     ctx.peds.peds.slice(0, 4).forEach((ped, i) => {
       const p = ahead(15 + i * 14, i % 2 === 0 ? -10.5 : 10.5);
