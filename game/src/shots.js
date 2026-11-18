@@ -8,8 +8,12 @@ import { createCarModel, Car } from './vehicles.js';
 // Where each scene starts the player (x, z, heading).
 const SPAWNS = {
   start: { x: 250, z: 45, heading: -Math.PI / 2 },
-  drive: { x: -200, z: 45, heading: Math.PI / 2 },
-  mission: { x: 250, z: -160, heading: Math.PI },
+  // Drive from the far west so the car is clear of the red-light queue at
+  // the first major intersection when the frame is taken.
+  drive: { x: -320, z: 45, heading: Math.PI / 2 },
+  // On the road by the port, facing the warehouse beacon — never inside a
+  // building lot.
+  mission: { x: 225, z: -160, heading: 2.0 },
   chase: { x: -100, z: -45, heading: Math.PI / 2 },
 };
 
@@ -19,6 +23,9 @@ export function stageShot(name, ctx) {
   // updateGame advances time from timeBase, so set the base, not the clock.
   ctx.timeBase = name === 'chase' ? 21.5 : name === 'start' ? 17.3 : name === 'mission' ? 14 : 10;
   ctx.timeOfDay = ctx.timeBase;
+  // Driving shots get a green light on their axis so the car is at speed,
+  // not queued behind traffic stopped at a red light.
+  if (name === 'drive' || name === 'chase') ctx.city.setCycle(8);
   ctx.player.health = 100;
   ctx.player.ammo = 24;
   ctx.player.weapon = name === 'mission' ? 'pistol' : 'fists';
@@ -53,8 +60,19 @@ export function stageShot(name, ctx) {
     return { simulateSeconds: 2.6, throttle: 1, steer: 0, orbit: false };
   }
 
-  // Mission: the port shootout, pistol out, guards ahead.
+  // Mission: the port shootout, pistol out, guards ahead. Pull the guards
+  // onto the street in front of Dani so the shootout reads in the frame
+  // (their mission spots are behind the warehouses).
   ctx.missions.startMission(4, ctx);
   ctx.player.place(spawn.x, spawn.z, spawn.heading);
+  const guardSpots = [[229, -172], [222, -181], [231, -190]];
+  ctx.combat.enemies.forEach((enemy, i) => {
+    const [gx, gz] = guardSpots[i % guardSpots.length];
+    enemy.x = gx;
+    enemy.z = gz;
+    enemy.heading = Math.atan2(spawn.x - gx, spawn.z - gz);
+    enemy.model.position.set(gx, 0, gz);
+    enemy.model.rotation.y = enemy.heading;
+  });
   return { simulateSeconds: 1.2, throttle: 0, steer: 0, orbit: false };
 }

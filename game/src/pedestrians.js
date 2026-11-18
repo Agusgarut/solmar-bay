@@ -61,7 +61,7 @@ export function createPedestrians(scene, rng) {
     return ped;
   }
 
-  for (let i = 0; i < 30; i += 1) spawn();
+  for (let i = 0; i < 60; i += 1) spawn();
 
   function nearestRoadCoord(value) {
     let best = ROAD_POSITIONS[0];

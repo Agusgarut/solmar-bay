@@ -378,10 +378,17 @@ function updateGame(dt, scripted) {
     });
   }
 
-  // Camera follows the player (or the car).
+  // Camera follows the player (or the car). The field of view widens with
+  // speed so fast driving feels fast.
   const focus = player.inCar ? player.inCar : player;
   const focusY = player.inCar ? 1 : player.y;
   updateCamera(camera, focus.x, focusY, focus.z, focus.heading, player, dt, drag);
+  const speed01 = player.inCar ? Math.min(1, Math.abs(player.inCar.speed) / 45) : 0;
+  const targetFov = 62 + speed01 * 9;
+  if (Math.abs(camera.fov - targetFov) > 0.2) {
+    camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3);
+    camera.updateProjectionMatrix();
+  }
 }
 
 // ---- Screens -------------------------------------------------------------

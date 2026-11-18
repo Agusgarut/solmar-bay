@@ -50,8 +50,8 @@ export function createTraffic(scene, rng, city) {
     return car;
   }
 
-  for (let i = 0; i < 22; i += 1) spawnTrafficCar();
-  for (let i = 0; i < 12; i += 1) spawnParkedCar();
+  for (let i = 0; i < 36; i += 1) spawnTrafficCar();
+  for (let i = 0; i < 20; i += 1) spawnParkedCar();
 
   function nearestRoadCoord(value) {
     let best = ROAD_POSITIONS[0];
@@ -63,6 +63,23 @@ export function createTraffic(scene, rng, city) {
 
   function update(dt, allCars) {
     for (const car of cars) {
+      const movingAlongX = Math.abs(Math.sin(car.heading)) > 0.9;
+      const axis = movingAlongX ? 'x' : 'z';
+      const along = movingAlongX ? car.x : car.z;
+      const dirSign = movingAlongX ? Math.sign(Math.sin(car.heading)) : Math.sign(Math.cos(car.heading));
+      // Stop at a red traffic light when approaching a major intersection,
+      // slow down on yellow.
+      let lightStop = false;
+      let lightSlow = false;
+      for (const p of [-135, -45, 45, 135]) {
+        const ahead = (p - along) * dirSign;
+        if (ahead > 1 && ahead < 16) {
+          const state = city.lightForAxis(axis);
+          if (state === 'red') lightStop = true;
+          if (state === 'yellow') lightSlow = true;
+          break;
+        }
+      }
       // Slow down for the car ahead.
       let blocked = false;
       for (const other of allCars) {
@@ -77,15 +94,13 @@ export function createTraffic(scene, rng, city) {
           }
         }
       }
-      const target = blocked ? 0 : TRAFFIC_SPEED;
+      const target = blocked || lightStop ? 0 : lightSlow ? TRAFFIC_SPEED * 0.4 : TRAFFIC_SPEED;
       car.speed += (target - car.speed) * Math.min(1, dt * 1.5);
       car.x += Math.sin(car.heading) * car.speed * dt;
       car.z += Math.cos(car.heading) * car.speed * dt;
       // At an intersection, sometimes turn onto the crossing road.
       // Right-hand traffic: the lane offset after a turn follows the new
       // heading's right side (cos for north/south, sin for east/west).
-      const movingAlongX = Math.abs(Math.sin(car.heading)) > 0.9;
-      const along = movingAlongX ? car.x : car.z;
       const near = nearestRoadCoord(along);
       if (Math.abs(along - near) < 2 && rng() < dt * 0.25) {
         car.heading += (rng() < 0.5 ? 1 : -1) * Math.PI / 2;
