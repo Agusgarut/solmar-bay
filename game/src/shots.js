@@ -7,14 +7,17 @@ import { createCarModel, Car } from './vehicles.js';
 
 // Where each scene starts the player (x, z, heading).
 const SPAWNS = {
-  start: { x: 250, z: 45, heading: -Math.PI / 2 },
-  // Drive from the far west so the car is clear of the red-light queue at
-  // the first major intersection when the frame is taken.
-  drive: { x: -320, z: 45, heading: Math.PI / 2 },
+  // Title on the beachfront: the sun, sea and palms settle around here.
+  start: { x: 315, z: -20, heading: 0 },
+  // Beachfront: drive SOUTH down the Ocean boulevard (x=315) — sea and
+  // palms on the left, sun ahead-left, ferris wheel and pier ahead.
+  drive: { x: 315, z: -60, heading: 0 },
   // On the road by the port, facing the warehouse beacon — never inside a
   // building lot.
   mission: { x: 225, z: -160, heading: 2.0 },
-  chase: { x: -100, z: -45, heading: Math.PI / 2 },
+  // Chase south down the same beach road, so the pursuit runs past the
+  // palms, the pier and the beach crowd.
+  chase: { x: 315, z: -110, heading: 0 },
 };
 
 export function stageShot(name, ctx) {
@@ -25,16 +28,18 @@ export function stageShot(name, ctx) {
   ctx.timeBase = name === 'start' ? 17.2 : 17.5;
   ctx.timeOfDay = ctx.timeBase;
   // Driving shots get a green light on their axis so the car is at speed,
-  // not queued behind traffic stopped at a red light.
-  if (name === 'drive' || name === 'chase') ctx.city.setCycle(8);
+  // not queued behind traffic stopped at a red light. The beach road runs
+  // north-south (z axis), whose green phase is 0-5 — cycle 2 is green.
+  if (name === 'drive' || name === 'chase') ctx.city.setCycle(2);
   ctx.player.health = 100;
   ctx.player.ammo = 24;
   ctx.player.weapon = name === 'mission' ? 'pistol' : 'fists';
   ctx.player.place(spawn.x, spawn.z, spawn.heading);
 
   if (name === 'start') {
-    // Title screen: a cinematic poster frame — the pink hero car in the
-    // lower right, low 3/4 rear view, downtown's golden-hour towers ahead.
+    // Title screen: a cinematic poster frame on the beachfront — the pink
+    // hero car in the lower right, low 3/4 rear view, palms and the sea
+    // ahead-left, the sun low over the road behind it.
     ctx.setState('title');
     ctx.hud.showTitle();
     const heroModel = createCarModel('sport', 0xff2e88, ctx.rng);
@@ -42,15 +47,17 @@ export function stageShot(name, ctx) {
     const heroCar = new Car(heroModel, 'sport');
     heroCar.driver = null;
     heroCar.parked = true;
-    heroCar.place(130, 48.5, Math.PI / 2);
+    heroCar.place(315, -5, 0.1);
     ctx.traffic.parked.push(heroCar);
     ctx.player.cameraYaw = Math.PI * 0.75;
     return {
       simulateSeconds: 0, throttle: 0, steer: 0, orbit: false,
-      // Low and close behind the car (12 m): the pink hero fills the
-      // lower-right of the frame, big enough to read spoiler, plate and
-      // rims, clear of the centred title text and button.
-      cameraPose: { pos: [120, 2.8, 41.5], look: [148, 1.5, 49] },
+      // Low and close, north-west of the car looking east-south-east
+      // down the beach: the pink hero fills the lower-right of the frame
+      // in a 3/4 rear view (flank + spoiler + plate + rims all readable),
+      // clear of the centred title text and button, with the sea and the
+      // pier on the left of the frame.
+      cameraPose: { pos: [306, 2.8, -18], look: [340, 1.5, 2] },
     };
   }
 
@@ -63,13 +70,19 @@ export function stageShot(name, ctx) {
     // The chase runs at 4 stars, so the helicopter is in the frame too.
     // The hero car is hot pink in both shots: it has to pop against the
     // sunset road, like the reference entries' pink sports car.
+    // Direction vectors: forward (fx, fz) and right (rx, rz) for any
+    // heading, so the lane offsets work on the beach road too.
+    const fx = Math.sin(spawn.heading);
+    const fz = Math.cos(spawn.heading);
+    const rx = Math.cos(spawn.heading);
+    const rz = -Math.sin(spawn.heading);
     const type = 'sport';
     const model = createCarModel(type, 0xff2e88, ctx.rng);
     ctx.scene.add(model);
     const car = new Car(model, type);
     car.driver = 'player';
     // Right-hand lane, not the centre line.
-    car.place(spawn.x, spawn.z + 3.5, spawn.heading);
+    car.place(spawn.x + rx * -3.5, spawn.z + rz * -3.5, spawn.heading);
     // The chase starts already rolling fast: its sim is shorter, so the
     // car needs a higher starting speed to be at full pace in the frame.
     car.speed = name === 'chase' ? 24 : 18;
@@ -79,8 +92,6 @@ export function stageShot(name, ctx) {
     ctx.police.setWanted(name === 'chase' ? 4 : 2);
     // Clear only the player's exact lane right ahead: cars in the other
     // lane and further out stay in the frame, so the street reads busy.
-    const fx = Math.sin(spawn.heading);
-    const fz = Math.cos(spawn.heading);
     for (let i = ctx.traffic.cars.length - 1; i >= 0; i -= 1) {
       const c = ctx.traffic.cars[i];
       const along = (c.x - spawn.x) * fx + (c.z - spawn.z) * fz;
@@ -92,12 +103,13 @@ export function stageShot(name, ctx) {
     }
     // Stage a busy street: real traffic cars ahead in both lanes, placed
     // far enough out that the player can't ram them during the short sim,
-    // close enough that the frame reads dense. Same-lane cars sit 60-140 m
-    // ahead (the player only closes ~29 m in the sim); oncoming cars
-    // 100-190 m (they close ~69 m, so they arrive right in the frame).
-    // That leaves cars at roughly 30-115 m ahead when the frame is taken.
-    const rx = Math.cos(spawn.heading);
-    const rz = -Math.sin(spawn.heading);
+    // close enough that the frame reads dense. Same-lane cars sit 55-180 m
+    // ahead (the player only closes ~23 m in the sim); oncoming cars
+    // 65-225 m (they close ~69 m, so they arrive right in the frame).
+    // That leaves cars at roughly 30-155 m ahead when the frame is taken.
+    // Gaps are >= 15 m in each lane: any closer and the car behind brakes
+    // for the car ahead (traffic slows within 11 m), the player catches
+    // the stopped car and the shot crawls at 36 km/h instead of 150+.
     const ahead = (dist, side) => ({
       x: spawn.x + fx * dist + rx * side,
       z: spawn.z + fz * dist + rz * side,
@@ -114,27 +126,52 @@ export function stageShot(name, ctx) {
       staged.targetSpeed = 13;
       ctx.traffic.cars.push(staged);
     };
-    stageCar(60, -3.5, 'sedan', 0xff2e88);
-    stageCar(85, -3.5, 'taxi', 0xe8b93b);
-    stageCar(115, -3.5, 'sport', 0x2ec4b6);
-    stageCar(140, -3.5, 'sport', 0xff2e88);
-    stageCar(100, 3.5, 'muscle', 0xff7a1a);
-    stageCar(130, 3.5, 'coupe', 0xffe14f);
-    stageCar(160, 3.5, 'van', 0xd8d8d8);
-    stageCar(190, 3.5, 'sedan', 0xff3b30);
-    // Foreground traffic: a convertible in the player's own lane 45 m out
-    // (it pulls away during the sim and ends ~18 m ahead) and a box truck
-    // coming the other way — the round-3 drive shot's foreground was an
-    // empty road, and the reference is busy bumper to bumper.
-    stageCar(45, -3.5, 'convertible', 0xffe14f);
-    stageCar(78, -3.5, 'sedan', 0xff3b30);
-    stageCar(88, 3.5, 'truck', 0x2ec4b6);
-    // A few pedestrians on the sidewalks beside the car.
-    ctx.peds.peds.slice(0, 4).forEach((ped, i) => {
-      const p = ahead(15 + i * 14, i % 2 === 0 ? -10.5 : 10.5);
+    stageCar(55, -3.5, 'convertible', 0xffe14f);
+    stageCar(78, -3.5, 'sedan', 0xff2e88);
+    stageCar(102, -3.5, 'taxi', 0xe8b93b);
+    stageCar(128, -3.5, 'sport', 0x2ec4b6);
+    stageCar(155, -3.5, 'sport', 0xff2e88);
+    stageCar(180, -3.5, 'coupe', 0x2e6fc2);
+    stageCar(65, 3.5, 'sedan', 0xd8d8d8);
+    stageCar(95, 3.5, 'muscle', 0xff7a1a);
+    stageCar(125, 3.5, 'coupe', 0xffe14f);
+    stageCar(140, 3.5, 'truck', 0x2ec4b6);
+    stageCar(170, 3.5, 'van', 0xd8d8d8);
+    stageCar(200, 3.5, 'sedan', 0xff3b30);
+    stageCar(225, 3.5, 'pickup', 0xff7a1a);
+    // Parked cars along the beachfront kerb: the street is never empty.
+    const parkCar = (x, z, heading, typeName, color) => {
+      const m = createCarModel(typeName, color, ctx.rng);
+      ctx.scene.add(m);
+      const parkedCar = new Car(m, typeName);
+      parkedCar.driver = null;
+      parkedCar.parked = true;
+      parkedCar.place(x, z, heading);
+      ctx.traffic.parked.push(parkedCar);
+    };
+    parkCar(spawn.x - 10.5, spawn.z + 30, spawn.heading, 'coupe', 0x4fd8ff);
+    parkCar(spawn.x - 10.5, spawn.z + 72, spawn.heading, 'sedan', 0xff5e8a);
+    parkCar(spawn.x + 10.5, spawn.z + 52, spawn.heading + Math.PI, 'van', 0xd8d8d8);
+    // A busy beachfront: 8 pedestrians on both sidewalks, 3 strolling the
+    // sand, 2 crossing at the next intersection — the frame must read
+    // crowded, like the reference.
+    const stagedPeds = ctx.peds.peds.slice(0, 13);
+    stagedPeds.forEach((ped, i) => {
+      let p;
+      if (i < 8) {
+        p = ahead(15 + i * 13, i % 2 === 0 ? -10.5 : 10.5);
+        ped.heading = spawn.heading;
+      } else if (i < 11) {
+        p = ahead(30 + (i - 8) * 28, 26 + (i - 8) * 9);
+        ped.heading = spawn.heading;
+      } else {
+        // Crossing the beach road at the next intersection.
+        const cz = spawn.z + 15;
+        p = { x: spawn.x + (i === 11 ? -10.5 : 10.5), z: cz };
+        ped.heading = i === 11 ? Math.PI / 2 : -Math.PI / 2;
+      }
       ped.x = p.x;
       ped.z = p.z;
-      ped.heading = spawn.heading;
       ped.model.position.set(p.x, 0, p.z);
       ped.model.rotation.y = ped.heading;
     });

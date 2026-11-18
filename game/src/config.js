@@ -13,9 +13,9 @@ export const WATER_X = 360;
 // Traffic & crowd density: the streets must read busy, like the entries
 // on the feed — cars close together on the main roads, people on every
 // sidewalk.
-export const TRAFFIC_CARS = 64;
+export const TRAFFIC_CARS = 80;
 export const PARKED_CARS = 28;
-export const PEDESTRIANS = 110;
+export const PEDESTRIANS = 140;
 
 // Player / on-foot tuning.
 export const WALK_SPEED = 6;
@@ -62,7 +62,7 @@ export const DISTRICTS = [
   { name: 'Downtown', x0: -90, x1: 90, z0: -180, z1: 180 },
   { name: 'Marina', x0: -360, x1: 90, z0: 180, z1: 360 },
   { name: 'Industrial', x0: 90, x1: 300, z0: -360, z1: -90 },
-  { name: 'Beachfront', x0: 90, x1: 300, z0: -90, z1: 360 },
+  { name: 'Beachfront', x0: 90, x1: 360, z0: -90, z1: 360 },
 ];
 
 export function districtAt(x, z) {

@@ -119,6 +119,26 @@ export function createPedestrians(scene, rng) {
     peds.push(ped);
   }
 
+  // Beach strollers: people walking the sand along the shoreline, north
+  // to south and back — the beach must feel populated, not empty sand.
+  for (let i = 0; i < 10; i += 1) {
+    const model = createPedModel(rng);
+    scene.add(model);
+    const ped = {
+      model,
+      x: 335 + rng() * 20,
+      z: range(rng, -320, 320),
+      heading: rng() < 0.5 ? 0 : Math.PI,
+      speed: range(rng, 1.0, 1.8),
+      walkPhase: rng() * 6,
+      fleeing: false, fleeTimer: 0, dead: false,
+      beach: true,
+    };
+    model.position.set(ped.x, 0, ped.z);
+    model.rotation.y = ped.heading;
+    peds.push(ped);
+  }
+
   function nearestRoadCoord(value) {
     let best = ROAD_POSITIONS[0];
     for (const p of ROAD_POSITIONS) {
@@ -162,13 +182,17 @@ export function createPedestrians(scene, rng) {
             ped.fleeing = false;
             // A crossing pedestrian goes back to the zebra after fleeing.
             if (ped.crossing) ped.heading = Math.atan2(ped.crossTo.x - ped.x, ped.crossTo.z - ped.z);
+            // A beach stroller goes back to strolling the shoreline.
+            else if (ped.beach) ped.heading = ped.z > 0 ? Math.PI : 0;
           }
         }
         const speed = ped.fleeing ? 5.5 : ped.speed;
         ped.x += Math.sin(ped.heading) * speed * dt;
         ped.z += Math.cos(ped.heading) * speed * dt;
         // Crossing pedestrians turn around at the far sidewalk and walk
-        // back; everyone else turns at intersections to keep wandering.
+        // back; beach strollers reverse at the ends of the beach and never
+        // turn onto the roads or into the sea; everyone else turns at
+        // intersections to keep wandering.
         if (ped.crossing && !ped.fleeing) {
           if (distance2D(ped.x, ped.z, ped.crossTo.x, ped.crossTo.z) < 1.2) {
             const tmp = ped.crossFrom;
@@ -176,6 +200,9 @@ export function createPedestrians(scene, rng) {
             ped.crossTo = tmp;
             ped.heading = Math.atan2(ped.crossTo.x - ped.x, ped.crossTo.z - ped.z);
           }
+        } else if (ped.beach && !ped.fleeing) {
+          if (ped.z > 330) ped.heading = Math.PI;
+          else if (ped.z < -330) ped.heading = 0;
         } else if (!ped.fleeing) {
           const movingAlongX = Math.abs(Math.sin(ped.heading)) > 0.9;
           const along = movingAlongX ? ped.x : ped.z;

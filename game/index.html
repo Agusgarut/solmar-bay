@@ -6,6 +6,17 @@
 <title>AshboelPunks — Solmar Bay</title>
 <link rel="icon" href="data:,">
 <style>
+  /* Logo font: Anton (OFL, The Anton Project Authors) — a heavy condensed
+     sans in the spirit of classic crime-game logos. Loaded LOCAL from
+     vendor/fonts/ so the game stays fully offline (0 external requests).
+     NOT Pricedown (Rockstar's font) — no Rockstar assets are used. */
+  @font-face {
+    font-family: 'Anton';
+    src: url('./vendor/fonts/Anton-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1a33; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -88,7 +99,7 @@
   /* Big mission banner on mission start. */
   #mission-banner { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); text-align: center; width: min(640px, 88vw); }
   #mission-banner-index { font-size: 13px; letter-spacing: 4px; color: #ffd23b; font-weight: 800; }
-  #mission-banner-title { font-size: 44px; font-weight: 900; font-style: italic; color: #fff; text-shadow: 0 3px 0 #7a2e0e, 0 8px 24px rgba(0,0,0,.8); }
+  #mission-banner-title { font-family: 'Anton', 'Arial Black', sans-serif; font-size: 48px; font-weight: 400; font-style: italic; color: #fff; letter-spacing: 2px; text-shadow: -2px -2px 0 #111, 2px -2px 0 #111, -2px 2px 0 #111, 2px 2px 0 #111, -2px 0 0 #111, 2px 0 0 #111, 0 -2px 0 #111, 0 2px 0 #111, 0 4px 0 #7a2e0e, 0 10px 24px rgba(0,0,0,.85); }
   #mission-banner-text { font-size: 16px; background: rgba(0,0,0,.6); padding: 10px 16px; border-radius: 8px; margin-top: 8px; line-height: 1.5; }
 
   #toast { position: absolute; bottom: 340px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.65); padding: 10px 18px; border-radius: 8px; font-size: 16px; }
@@ -105,14 +116,14 @@
 
   /* ---- Screens ---- */
   .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #eef1f5; background: linear-gradient(180deg, rgba(8,12,24,.10) 0%, rgba(8,12,24,.42) 78%); }
-  .game-title { font-size: min(84px, 12vw); font-weight: 900; letter-spacing: 2px; margin: 0; color: #ffd23b; text-shadow: 0 4px 0 #7a2e0e, 0 8px 24px rgba(0,0,0,.8); font-style: italic; }
+  .game-title { font-family: 'Anton', 'Arial Black', sans-serif; font-size: min(96px, 13vw); font-weight: 400; letter-spacing: 3px; margin: 0; color: #ffd23b; font-style: italic; text-shadow: -3px -3px 0 #111, 3px -3px 0 #111, -3px 3px 0 #111, 3px 3px 0 #111, -3px 0 0 #111, 3px 0 0 #111, 0 -3px 0 #111, 0 3px 0 #111, 0 6px 0 #7a2e0e, 0 12px 28px rgba(0,0,0,.85); }
   .game-subtitle { font-size: min(22px, 4vw); margin: 10px 0 4px; opacity: .95; }
   .game-tagline { font-size: 15px; opacity: .8; max-width: 560px; line-height: 1.6; padding: 0 20px; }
   .title-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 16px; padding: 0 20px; }
   .title-chips span { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #ffd23b; background: rgba(0,0,0,.5); border: 1px solid rgba(255,210,59,.5); padding: 5px 12px; border-radius: 20px; }
   .big-btn { margin-top: 28px; font-size: 20px; font-weight: 800; color: #111; background: #ffd23b; border: none; border-radius: 10px; padding: 14px 34px; cursor: pointer; pointer-events: auto; box-shadow: 0 0 24px rgba(255,210,59,.55), 0 4px 0 #7a2e0e; }
   .controls { margin-top: 26px; font-size: 14px; line-height: 1.9; opacity: .85; background: rgba(0,0,0,.45); padding: 12px 22px; border-radius: 10px; }
-  .screen h2 { font-size: 44px; margin: 0 0 10px; }
+  .screen h2 { font-family: 'Anton', 'Arial Black', sans-serif; font-weight: 400; font-style: italic; letter-spacing: 2px; font-size: 52px; margin: 0 0 10px; text-shadow: -2px -2px 0 #111, 2px -2px 0 #111, -2px 2px 0 #111, 2px 2px 0 #111, 0 4px 0 #7a2e0e, 0 10px 24px rgba(0,0,0,.85); }
   .screen p { font-size: 17px; max-width: 520px; padding: 0 20px; line-height: 1.6; }
 </style>
 <script type="importmap">
