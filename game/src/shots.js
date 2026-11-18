@@ -3,7 +3,7 @@
 // then lets the simulation run a couple of seconds so the frame is what a
 // short game really looks like, and the same seed always gives the same frame.
 
-import { createCarModel, Car } from './vehicles.js';
+import { createCarModel, Car, HERO_RED } from './vehicles.js';
 
 // Where each scene starts the player (x, z, heading).
 const SPAWNS = {
@@ -41,13 +41,13 @@ export function stageShot(name, ctx) {
   return stageMission(spawn, ctx);
 }
 
-// Title screen: a cinematic poster frame on the beachfront — the pink
+// Title screen: a cinematic poster frame on the beachfront — the red
 // hero car in the lower right, low 3/4 rear view, palms and the sea
 // ahead-left, the sun low over the road behind it.
 function stageTitle(ctx) {
   ctx.setState('title');
   ctx.hud.showTitle();
-  const heroModel = createCarModel('sport', 0xff2e88, ctx.rng);
+  const heroModel = createCarModel('sport', HERO_RED, ctx.rng, true);
   ctx.scene.add(heroModel);
   const heroCar = new Car(heroModel, 'sport');
   heroCar.driver = null;
@@ -58,7 +58,7 @@ function stageTitle(ctx) {
   return {
     simulateSeconds: 0, throttle: 0, steer: 0, orbit: false,
     // Low and close, north-west of the car looking east-south-east down
-    // the beach: the pink hero fills the lower-right of the frame in a 3/4
+    // the beach: the red hero fills the lower-right of the frame in a 3/4
     // rear view (flank + spoiler + plate + rims all readable), clear of
     // the centred title text and button, with the sea and the pier on the
     // left of the frame.
@@ -68,8 +68,8 @@ function stageTitle(ctx) {
 
 // Drive / chase: put Dani in a car and let them drive while the police
 // close in. The chase runs at 4 stars, so the helicopter is in the frame
-// too. The hero car is hot pink in both shots: it has to pop against the
-// sunset road, like the reference entries' pink sports car.
+// too. The hero car is bright red in both shots: it has to pop against the
+// sunset road, like the reference entry's red supercar.
 function stageDrive(name, spawn, ctx) {
   ctx.setState('play');
   ctx.hud.showPlay();
@@ -86,7 +86,7 @@ function stageDrive(name, spawn, ctx) {
     z: spawn.z + fz * dist + rz * side,
   });
 
-  const model = createCarModel('sport', 0xff2e88, ctx.rng);
+  const model = createCarModel('sport', HERO_RED, ctx.rng, true);
   ctx.scene.add(model);
   const car = new Car(model, 'sport');
   car.driver = 'player';
@@ -137,10 +137,10 @@ function stageDrive(name, spawn, ctx) {
     ctx.traffic.cars.push(staged);
   };
   stageCar(55, 3.5, 'convertible', 0xffe14f);
-  stageCar(78, 3.5, 'sedan', 0xff2e88);
+  stageCar(78, 3.5, 'sedan', 0x3a9e5f);
   stageCar(102, 3.5, 'taxi', 0xe8b93b);
   stageCar(128, 3.5, 'sport', 0x2ec4b6);
-  stageCar(155, 3.5, 'sport', 0xff2e88);
+  stageCar(155, 3.5, 'sport', HERO_RED);
   stageCar(180, 3.5, 'coupe', 0x2e6fc2);
   stageCar(65, -3.5, 'sedan', 0xd8d8d8);
   stageCar(95, -3.5, 'muscle', 0xff7a1a);

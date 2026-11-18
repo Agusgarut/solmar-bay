@@ -14,7 +14,7 @@ import { createInput, ACTION_CONFIRM, ACTION_PAUSE, ACTION_ENTER_CAR, ACTION_PUN
 import { createAudio } from './audio.js';
 import { loadSave, writeSave } from './save.js';
 import { buildCity } from './city.js';
-import { createCarModel, Car } from './vehicles.js';
+import { createCarModel, Car, HERO_RED } from './vehicles.js';
 import { createPlayer, updateCamera, applyDamage } from './player.js';
 import { createTraffic } from './traffic.js';
 import { createPedestrians } from './pedestrians.js';
@@ -89,7 +89,7 @@ const ctx = {
     writeSave(ctx.save);
   },
   spawnMissionCar() {
-    const model = createCarModel('sport', 0xd81e5b, rng);
+    const model = createCarModel('sport', HERO_RED, rng);
     scene.add(model);
     const car = new Car(model, 'sport');
     car.driver = null;
