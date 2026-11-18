@@ -948,6 +948,50 @@ export function buildCity(scene, rng) {
       indices.push(vi, vi + 1, vi + 2);
       vi += 3;
     }
+    function quad(a, b, c, d, color) {
+      tri(a, b, c, color);
+      tri(a, c, d, color);
+    }
+    // Blunt tip for a leaflet blade: instead of one sharp apex (which
+    // reads as a needle up close), the blade ends in a short tip edge
+    // pulled back from the apex, so the tip is a soft rounded rectangle,
+    // not a spike. `a`/`b` are the base edge on the rib, `apex` the old
+    // sharp tip; returns the quad's four corners.
+    function bluntBlade(a, b, apex, pullBack, tipHalf) {
+      const mx = (a[0] + b[0]) / 2;
+      const my = (a[1] + b[1]) / 2;
+      const mz = (a[2] + b[2]) / 2;
+      let ax = apex[0] - mx;
+      let ay = apex[1] - my;
+      let az = apex[2] - mz;
+      const alen = Math.hypot(ax, ay, az) || 1;
+      ax /= alen;
+      ay /= alen;
+      az /= alen;
+      // In-plane perpendicular to the blade axis.
+      let px = (b[0] - a[0]);
+      let py = (b[1] - a[1]);
+      let pz = (b[2] - a[2]);
+      // perp = normalize(cross(axis, baseEdge)) — lies in the blade plane.
+      let qx = ay * pz - az * py;
+      let qy = az * px - ax * pz;
+      let qz = ax * py - ay * px;
+      const qlen = Math.hypot(qx, qy, qz) || 1;
+      qx /= qlen;
+      qy /= qlen;
+      qz /= qlen;
+      const t1 = [
+        apex[0] - ax * pullBack + qx * tipHalf,
+        apex[1] - ay * pullBack + qy * tipHalf,
+        apex[2] - az * pullBack + qz * tipHalf,
+      ];
+      const t2 = [
+        apex[0] - ax * pullBack - qx * tipHalf,
+        apex[1] - ay * pullBack - qy * tipHalf,
+        apex[2] - az * pullBack - qz * tipHalf,
+      ];
+      return [a, b, t2, t1];
+    }
     // Central rib: a thin dark-olive strip along the curve, the frond's
     // visible spine.
     const ribCol = [0.30, 0.42, 0.16].map((v) => v * shade);
@@ -961,7 +1005,8 @@ export function buildCity(scene, rng) {
     // Leaflets: TWO overlapping blades per side at each station. Blade A
     // sweeps back along the rib; blade B sits half a station further out
     // and hangs lower, so the frond's edge reads as a full feather, not
-    // a row of separate needles.
+    // a row of separate needles. Each blade is a blunt-tipped quad, not
+    // a sharp triangle, so the leaflet tips read rounded up close.
     for (let i = 1; i < stations; i += 1) {
       const p = rib[i];
       const pNext = rib[i + 1];
@@ -977,7 +1022,9 @@ export function buildCity(scene, rng) {
           p.y + dirY * L * 0.1 - L * 0.2,
           side * L,
         ];
-        tri([p.x, p.y, 0], [p.x + dirX * segLen * 0.6, p.y + dirY * segLen * 0.6, 0], tipA, col);
+        const baseA0 = [p.x, p.y, 0];
+        const baseA1 = [p.x + dirX * segLen * 0.6, p.y + dirY * segLen * 0.6, 0];
+        quad(...bluntBlade(baseA0, baseA1, tipA, L * 0.2, L * 0.16), col);
         // Blade B: shorter, steeper, hanging below blade A.
         const pB = { x: p.x + dirX * segLen * 0.5, y: p.y + dirY * segLen * 0.5 };
         const tipB = [
@@ -985,7 +1032,9 @@ export function buildCity(scene, rng) {
           pB.y - L * 0.38,
           side * L * 0.82,
         ];
-        tri([pB.x, pB.y, 0], [pB.x + dirX * segLen * 0.45, pB.y + dirY * segLen * 0.45, 0], tipB, col);
+        const baseB0 = [pB.x, pB.y, 0];
+        const baseB1 = [pB.x + dirX * segLen * 0.45, pB.y + dirY * segLen * 0.45, 0];
+        quad(...bluntBlade(baseB0, baseB1, tipB, L * 0.16, L * 0.13), col);
       }
     }
     const geo = new THREE.BufferGeometry();
@@ -1177,13 +1226,37 @@ export function buildCity(scene, rng) {
   billboard(-45, -140, 0, 'SOLMAR BAY', '#4fd8ff');
   billboard(135, 140, Math.PI, 'CASINO', '#ff5e8a');
   billboard(45, 270, 0, 'PIZZA 24H', '#ffb13b');
-  // The reference's giant pink radio billboard — on the SAND side of the
-  // beach road, angled to face the southbound chase cam, so the whole
-  // panel reads (a west-side board hides behind the hotel wall). Our own
-  // station, SOLMAR FM, never the reference's brand. It sits at z=70,
-  // clear of the foreground palm that used to cut it in half in the drive
-  // shot, and the panel rides higher (16 m) than the palm crowns.
-  billboard(334, 70, -2.7, 'SOLMAR FM', '#ff5e8a', true);
+  // The reference's giant pink radio billboard — as an OVERHEAD GANTRY
+  // spanning the Ocean boulevard, not a roadside board. A roadside board
+  // can never read clean here: the drive/chase cameras sit low on the
+  // road, so their sightline to any distant panel crosses the palm
+  // crowns (frond tips reach ~18 m) at every palm between camera and
+  // board — moving it or skipping a few palms just hands the job to the
+  // next palm down the line. The gantry panel hangs over the road
+  // itself, 22–29 m up (above every frond tip), and only 16 m wide so
+  // its text stays over the road centre, clear of both palm lines — with
+  // nothing but open road between the cameras and the panel, SOLMAR FM
+  // reads FULL and CLEAN in every beach-road shot. Our own station,
+  // never the reference's brand. The panel faces north, toward the
+  // southbound cameras.
+  function gantry(z, text, color) {
+    const span = 16;
+    const panelH = 7;
+    const panelY = 25.5;
+    for (const px of [315 - span / 2, 315 + span / 2]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 29, 10), poleMat);
+      post.position.set(px, 14.5, z);
+      group.add(post);
+    }
+    const panel = new THREE.Mesh(
+      new THREE.PlaneGeometry(span, panelH),
+      new THREE.MeshBasicMaterial({ map: makeSignTexture(text, color) }),
+    );
+    panel.position.set(315, panelY, z);
+    panel.rotation.y = Math.PI;
+    group.add(panel);
+  }
+  gantry(77, 'SOLMAR FM', '#ff5e8a');
   // Beachfront palms: tall RED trunks (the reference's signature) lining
   // BOTH sides of the Ocean boulevard (x=315) — the sand edge east of the
   // road and the sidewalk west of it — every ~14 m, so the beach road

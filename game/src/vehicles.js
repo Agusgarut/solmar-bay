@@ -375,8 +375,11 @@ export function createCarModel(typeName, color, rng, hero = false) {
     // material, so braking flares them together.
     box(group, type.width * 0.9, 0.16, 0.06, darkMat, 0, 0.54, -type.length / 2 - 0.02, false);
     // Deep red, not blown pink-white: the strips read as red taillights
-    // (round 9 nit), flaring brighter on braking.
-    stripMat = new THREE.MeshLambertMaterial({ color: 0xd8001a, emissive: 0xd8001a, emissiveIntensity: 2.2 });
+    // (round 9 nit, still pink-white in round 11). ACES tone mapping at
+    // exposure 1.45 desaturates bright emissive toward white, so the
+    // emissive is a DARKER red and the intensity is kept near 1 — the
+    // strips glow deep red instead of blowing out.
+    stripMat = new THREE.MeshLambertMaterial({ color: 0xb00014, emissive: 0x9e0012, emissiveIntensity: 1.1 });
     for (const side of [-1, 1]) {
       box(group, type.width * 0.3, 0.07, 0.04, stripMat, side * type.width * 0.27, 0.58, -type.length / 2 - 0.05, false);
     }
@@ -553,7 +556,7 @@ export function createCarModel(typeName, color, rng, hero = false) {
   };
   group.userData.setBraking = (on) => {
     tailMat.emissiveIntensity = on ? 2.6 : 1.0;
-    if (stripMat) stripMat.emissiveIntensity = on ? 3.0 : 2.2;
+    if (stripMat) stripMat.emissiveIntensity = on ? 1.6 : 1.1;
   };
   return group;
 }
