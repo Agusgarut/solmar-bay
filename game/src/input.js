@@ -106,7 +106,9 @@ export function createInput(canvas) {
     },
     /** Mouse drag since the last call, in pixels, for the camera orbit. */
     takeDrag() {
-      const d = dragX;
+      // Clamp a single frame's drag: a pointer jump (window refocus,
+      // touch glitch) must not spin the camera a full turn in one frame.
+      const d = Math.max(-400, Math.min(400, dragX));
       dragX = 0;
       return d;
     },

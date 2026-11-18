@@ -48,8 +48,9 @@ function validateShots(files) {
 }
 
 // Fail fast with a clear message when the game entry point is missing,
-// instead of copying a broken game/ and failing at the grader.
-for (const required of ['game/index.html', 'game/src/main.js']) {
+// instead of copying a broken game/ and failing at the grader. shots.js
+// is required too: the staged screenshots are part of the entry.
+for (const required of ['game/index.html', 'game/src/main.js', 'game/src/shots.js']) {
   if (!existsSync(join(here, required))) {
     throw new Error(`missing required file: ${required}`);
   }

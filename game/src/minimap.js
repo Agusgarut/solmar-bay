@@ -41,8 +41,9 @@ export function createMinimap() {
     ctx.fillStyle = '#c9b078';
     ctx.fillRect((SAND_X0 + WORLD_HALF) * SCALE, 0, (WATERLINE_X - SAND_X0) * SCALE, SIZE);
 
-    // Roads: one band per road line, both axes.
-    ctx.fillStyle = '#3a3d42';
+    // Roads: one band per road line, both axes. Light grey like the
+    // round-13 asphalt, so the map's roads match the 3D streets.
+    ctx.fillStyle = '#46484d';
     for (const p of ROAD_POSITIONS) {
       const [x] = toMap(p, 0);
       ctx.fillRect(x - (ROAD_WIDTH / 2) * SCALE, 0, ROAD_WIDTH * SCALE, SIZE);

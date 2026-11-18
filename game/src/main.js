@@ -261,12 +261,11 @@ function drivePlayerCar(dt, car, throttle, steer, handbrake, allCars) {
     }
   }
   // Dust and exhaust while driving: a soft billowing trail behind the
-  // rear wheels at speed, like the new reference's dust cloud. The puffs
-  // stay where the tyres kicked them up (world space) and expand there —
-  // the car's forward motion lays the trail, so they need no backward
-  // velocity of their own (a backward kick would blow them past the
-  // camera before they can be seen).
-  if (Math.abs(car.speed) > 8 && Math.random() < dt * 14) {
+  // rear wheels at speed, like the new reference's dust cloud. Round 13:
+  // the trail spawns more often (20/s) and from a lower speed, so at
+  // 159 km/h the drive shot always has fresh puffs hugging the rear
+  // wheels instead of a dustless frame.
+  if (Math.abs(car.speed) > 6 && Math.random() < dt * 20) {
     effects.dustTrail(
       car.x - Math.sin(car.heading) * 2, 0.4, car.z - Math.cos(car.heading) * 2,
       0, 0,

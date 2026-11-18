@@ -10,14 +10,16 @@ import { pick } from './random.js';
 // The hero's red: the bright supercar red from the new reference entry,
 // not the old hot pink. Every hero call site passes this constant.
 export const HERO_RED = 0xe8112d;
-// Taillight strip: deep red, kept dim on purpose — under ACES tone
-// mapping at exposure 1.45 a bright red emissive washes out to
-// pink-white, so the strip's glow stays low and its brake flare stays
-// modest instead of blowing out.
-export const TAILLIGHT_COLOR = 0xb00014;
-export const TAILLIGHT_EMISSIVE = 0x9e0012;
-export const TAILLIGHT_GLOW = 1.1;
-export const TAILLIGHT_BRAKE_GLOW = 1.6;
+// Taillight strip: a deep red, strong enough to read from dead
+// behind — round 12 kept it dim (pink-white blowout under ACES at
+// exposure 1.45), round 13's first pass went too bright and the bar
+// rendered salmon-pink. The fix is AREA, not brightness: a full-width
+// bar (below) at a mid-dark red, so the rear reads as a lit red lamp
+// from straight behind without blowing out.
+export const TAILLIGHT_COLOR = 0x9e0012;
+export const TAILLIGHT_EMISSIVE = 0x8a000e;
+export const TAILLIGHT_GLOW = 1.4;
+export const TAILLIGHT_BRAKE_GLOW = 2.4;
 
 export const CAR_TYPES = {
   sedan: { length: 4.4, width: 1.9, accel: 1.0, top: 1.0, color: 0xc23b2e, label: 'Solmar Sedan' },
@@ -320,12 +322,14 @@ export function createCarModel(typeName, color, rng, hero = false) {
     // The wing is the rear silhouette: wider than the body, deeper, and
     // higher (1.42 m) on tall struts rising from the fastback deck, with
     // tall end plates — it has to tower over the deck like the reference
-    // supercar's wing, not sit on the roof like a parcel shelf.
+    // supercar's wing, not sit on the roof like a parcel shelf. Round 13:
+    // the end plates are body-coloured and smaller, so the wing reads as
+    // one red wing instead of two black slabs hanging off it.
     box(group, type.width * 1.06, 0.08, 0.7, bodyMat, 0, st.wingY, -type.length / 2 + 0.22, false);
     for (const side of [-1, 1]) {
       box(group, 0.09, 0.8, 0.09, darkMat, side * (type.width / 2 - 0.32), 1.02, -type.length / 2 + 0.22, false);
       // End plates: vertical fins at each wing tip, the classic GT look.
-      box(group, 0.05, 0.5, 0.75, darkMat, side * (type.width / 2 - 0.02), st.wingY, -type.length / 2 + 0.22, false);
+      box(group, 0.05, 0.38, 0.62, bodyMat, side * (type.width / 2 - 0.02), st.wingY, -type.length / 2 + 0.22, false);
     }
     // Front splitter and side skirts: the fast cars sit low and wide, so
     // they read as sports cars from the chase cam, not plain boxes.
@@ -337,18 +341,27 @@ export function createCarModel(typeName, color, rng, hero = false) {
     }
     // Rear diffuser with vertical fins, low at the back and PROTRUDING
     // past the tail face — the rear gets a dark sculpted valance below
-    // the tail band, so the back isn't one flat wall.
-    box(group, type.width * 0.82, 0.24, 0.3, darkMat, 0, 0.14, -type.length / 2 - 0.1, false);
+    // the tail band, so the back isn't one flat wall. Round 13: deeper
+    // and taller, so the valance reads as a sculpted diffuser from the
+    // chase cam, not a thin dark strip under the plate.
+    box(group, type.width * 0.82, 0.3, 0.36, darkMat, 0, 0.15, -type.length / 2 - 0.16, false);
     for (const fx of [-0.5, -0.17, 0.17, 0.5]) {
-      box(group, 0.05, 0.24, 0.3, darkMat, fx * type.width * 0.8, 0.13, -type.length / 2 - 0.12, false);
+      box(group, 0.05, 0.3, 0.36, darkMat, fx * type.width * 0.8, 0.14, -type.length / 2 - 0.18, false);
     }
-    // Twin exhaust tips, chrome and oversized, poking out of the diffuser.
-    const exhaustGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.26, 12);
+    // Twin exhaust tips, chrome and oversized, poking out of the diffuser —
+    // round 13: bigger (0.17 m radius) with a dark bore inside each tip,
+    // so they read as real pipes from behind instead of grey discs.
+    const exhaustGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.34, 12);
     exhaustGeo.rotateX(Math.PI / 2);
+    const boreGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.36, 12);
+    boreGeo.rotateX(Math.PI / 2);
     for (const side of [-1, 1]) {
       const tip = new THREE.Mesh(exhaustGeo, chromeMat);
-      tip.position.set(side * (type.width / 2 - 0.42), 0.24, -type.length / 2 - 0.2);
+      tip.position.set(side * (type.width / 2 - 0.42), 0.24, -type.length / 2 - 0.26);
       group.add(tip);
+      const bore = new THREE.Mesh(boreGeo, darkMat);
+      bore.position.set(side * (type.width / 2 - 0.42), 0.24, -type.length / 2 - 0.27);
+      group.add(bore);
     }
     // Sloped hood: a thin box pitched a few degrees, so the nose reads
     // as a wedge instead of a flat slab. The fastback deck is the body
@@ -376,20 +389,27 @@ export function createCarModel(typeName, color, rng, hero = false) {
       box(group, type.width * 0.78, 0.05, hl * 0.31, bodyMat, 0, 1.02, -hl * 0.25, false);
       box(group, type.width * 0.8, 0.05, hl * 0.47, glassMat, 0, 0.82, -hl * 0.63, false, -0.5);
     }
-    // Thin tail band on the short tail face, with TWO THIN glowing
-    // strips at its top edge — the reference's slim taillights, not the
-    // old wide pale bar. The band is DARK so the two bright red strips
-    // read as two separate lines against it. Both strips share one
-    // material, so braking flares them together.
-    box(group, type.width * 0.9, 0.16, 0.06, darkMat, 0, 0.54, -type.length / 2 - 0.02, false);
-    // Deep red, not blown pink-white: the strips read as red taillights
-    // (round 9 nit, still pink-white in round 11). ACES tone mapping at
-    // exposure 1.45 desaturates bright emissive toward white, so the
-    // emissive is a DARKER red and the intensity is kept near 1 — the
-    // strips glow deep red instead of blowing out.
+    // Full-width tail light bar on the short tail face — round 13: the
+    // old two thin strips (0.07 m tall, dark red) vanished from dead
+    // behind in the drive shot. One continuous bar across 88% of the
+    // width, 0.12 m tall and proud of the tail face, reads as the
+    // reference's slim full-width taillight from straight behind. The
+    // dark band behind it is TALL (0.30 m), so the bar sits in a dark
+    // frame with black visible above and below it — the bar reads as a
+    // lamp, not a lighter-red stripe on red paint. A small centre brake
+    // light sits high on the rear deck. All three share one material,
+    // so braking flares them together.
+    box(group, type.width * 0.9, 0.3, 0.06, darkMat, 0, 0.55, -type.length / 2 - 0.02, false);
     stripMat = new THREE.MeshLambertMaterial({ color: TAILLIGHT_COLOR, emissive: TAILLIGHT_EMISSIVE, emissiveIntensity: TAILLIGHT_GLOW });
+    box(group, type.width * 0.88, 0.12, 0.05, stripMat, 0, 0.6, -type.length / 2 - 0.06, false);
+    // Centre high brake light on the rear deck, above the glass.
+    box(group, 0.5, 0.06, 0.05, stripMat, 0, 1.06, -type.length * 0.3, false);
+    // Rear crease line across the tail, so the flat red wall breaks into
+    // deck and bumper — a shut line, not a blank slab.
+    box(group, type.width * 0.86, 0.035, 0.04, darkMat, 0, 0.78, -type.length / 2 - 0.03, false);
+    // Low rear reflectors on the bumper corners, flanking the diffuser.
     for (const side of [-1, 1]) {
-      box(group, type.width * 0.3, 0.07, 0.04, stripMat, side * type.width * 0.27, 0.58, -type.length / 2 - 0.05, false);
+      box(group, 0.22, 0.08, 0.04, stripMat, side * (type.width / 2 - 0.3), 0.32, -type.length / 2 - 0.04, false);
     }
   }
   if (typeName === 'muscle') {

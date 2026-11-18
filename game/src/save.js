@@ -62,7 +62,7 @@ export function loadSave() {
     merged.money = Math.max(0, num(merged.money, 250));
     merged.missionIndex = Math.max(0, num(merged.missionIndex, 0));
     merged.missionsDone = Math.max(0, num(merged.missionsDone, 0));
-    merged.carsStolen = num(merged.carsStolen, 0);
+    merged.carsStolen = Math.max(0, num(merged.carsStolen, 0));
     merged.bestWanted = num(merged.bestWanted, 0);
     merged.bestSpeed = num(merged.bestSpeed, 0);
     merged.radioStation = num(merged.radioStation, 0);

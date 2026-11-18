@@ -172,8 +172,8 @@ export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, playe
     cz += Math.sin(yaw) * CHASE_LATERAL_OFFSET;
   }
   // Speed shake: a small random jitter at 100+ km/h in a car.
-  if (player.inCar && Math.abs(player.inCar.speed) > 28) {
-    const jitter = Math.min(0.16, (Math.abs(player.inCar.speed) - 28) * 0.008);
+  if (player.inCar && Math.abs(player.inCar.speed) > 26) {
+    const jitter = Math.min(0.16, (Math.abs(player.inCar.speed) - 26) * 0.008);
     cx += (Math.random() - 0.5) * jitter;
     cy += (Math.random() - 0.5) * jitter * 0.6;
     cz += (Math.random() - 0.5) * jitter;

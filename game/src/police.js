@@ -167,9 +167,9 @@ export function createPolice(scene, rng) {
     return force;
   }
 
-  // Light bars flash red/blue, alternating every 250 ms.
+  // Light bars flash red/blue, alternating every 220 ms.
   function flashLightBars() {
-    const flashRed = Math.floor(Date.now() / 250) % 2 === 0;
+    const flashRed = Math.floor(Date.now() / 220) % 2 === 0;
     for (const car of copCars) {
       const bar = car.model.userData.lightBar;
       if (!bar) continue;

@@ -96,17 +96,22 @@
   .dispatch-more { font-size: 11px; color: rgba(255,255,255,0.65); padding: 3px 0 0; }
 
   /* Money + clock + wanted stars, top-right — the GTA corner: big money,
-     the clock beside it, stars underneath. */
-  #wanted-wrap { position: absolute; top: 14px; right: 16px; text-align: right; }
+     the clock beside it, stars underneath. Round 13: the whole corner
+     sits on a subtle dark panel, so the money, stars and state pill
+     read against the pink sky and the palm canopy instead of fighting it. */
+  #wanted-wrap { position: absolute; top: 14px; right: 16px; text-align: right; background: rgba(8,10,18,.5); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 8px 12px 10px; }
   #clock { font-size: 14px; font-weight: 700; opacity: .9; }
   #money { font-size: 34px; font-weight: 900; color: var(--green); line-height: 1.05; }
   #wanted-label { font-size: 11px; letter-spacing: 3px; font-weight: 800; opacity: .85; margin-top: 2px; }
   #wanted { font-size: 30px; letter-spacing: 4px; color: var(--gold); }
   #wanted.hot { animation: pulse 0.7s infinite alternate; text-shadow: 0 0 14px rgba(255,210,59,.95), 0 0 30px rgba(255,120,40,.55); }
-  /* A dark pill behind the label, so TERLIHAT stays readable when a palm
-     frond passes behind it (round 9 nit). */
-  #wanted-state { display: inline-block; font-size: 11px; letter-spacing: 2px; font-weight: 800; margin-top: 2px; color: var(--red-soft); background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 10px; }
-  #wanted-state.safe { color: rgba(255,255,255,.55); }
+  /* A SOLID dark pill behind the label, so TERLIHAT stays readable when a
+     palm frond passes behind it — round 13: the old 0.45-alpha pill with
+     small red text washed out against the pink sky and got crossed by
+     fronds. Now: near-solid black, WHITE bold text at 13 px, red border
+     and a hard shadow, so the state reads at a glance from any angle. */
+  #wanted-state { display: inline-block; font-size: 13px; letter-spacing: 2px; font-weight: 800; margin-top: 4px; color: #fff; background: rgba(0,0,0,.85); border: 1px solid rgba(255,80,80,.7); padding: 3px 10px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.6); text-shadow: none; }
+  #wanted-state.safe { color: rgba(255,255,255,.75); border-color: rgba(255,255,255,.25); }
   /* Weapon chips under the stars, like the reference's icon row:
      numbered slots 1-5, the equipped one highlighted, the rest dimmed
      (slots 3-5 are locked for now — only fists and pistol exist). */
@@ -189,8 +194,13 @@
   /* ---- Screens ---- */
   .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--ink); background: linear-gradient(180deg, rgba(8,12,24,.10) 0%, rgba(8,12,24,.42) 78%); }
   .game-title { font-family: 'Anton', 'Arial Black', sans-serif; font-size: min(96px, 13vw); font-weight: 400; letter-spacing: 3px; margin: 0; color: var(--gold); font-style: italic; text-shadow: -3px -3px 0 #111, 3px -3px 0 #111, -3px 3px 0 #111, 3px 3px 0 #111, -3px 0 0 #111, 3px 0 0 #111, 0 -3px 0 #111, 0 3px 0 #111, 0 6px 0 var(--gold-dark), 0 12px 28px rgba(0,0,0,.85); }
-  .game-subtitle { font-size: min(22px, 4vw); margin: 10px 0 4px; opacity: .95; }
-  .game-tagline { font-size: 15px; opacity: .8; max-width: 560px; line-height: 1.6; padding: 0 20px; }
+  /* Round 13: the subtitle was thin white text straight on the pink sky,
+     crossed by a palm trunk. Now it sits in its own dark pill with a
+     heavy weight and a hard shadow — readable wherever the camera puts
+     a trunk or the sunset behind it. The tagline gets the same hard
+     shadow treatment. */
+  .game-subtitle { display: inline-block; font-size: min(22px, 4vw); font-weight: 800; margin: 10px 0 4px; color: #fff; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.2); padding: 6px 18px; border-radius: 20px; text-shadow: 0 2px 0 rgba(0,0,0,.9), 0 0 14px rgba(0,0,0,.9); }
+  .game-tagline { font-size: 15px; opacity: .92; max-width: 560px; line-height: 1.6; padding: 0 20px; text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(0,0,0,.8); }
   .title-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 16px; padding: 0 20px; }
   .title-chips span { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: var(--gold); background: rgba(0,0,0,.5); border: 1px solid rgba(255,210,59,.5); padding: 5px 12px; border-radius: 20px; }
   .big-btn { margin-top: 28px; font-size: 20px; font-weight: 800; color: #111; background: var(--gold); border: none; border-radius: 10px; padding: 14px 34px; cursor: pointer; pointer-events: auto; box-shadow: 0 0 24px rgba(255,210,59,.55), 0 4px 0 var(--gold-dark); }

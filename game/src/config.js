@@ -89,22 +89,23 @@ export function districtAt(x, z) {
 }
 
 // Sun-soaked palette: bright golden-hour sky, warm sand, teal water,
-// dark asphalt — the game should read as a bright afternoon in the sun,
-// not a dim dusk. The asphalt value matches the road texture (round 6:
-// dark, warm-grey, never wide brown).
+// light grey asphalt — the game should read as a bright afternoon in the
+// sun, not a dim dusk. Round 13: the asphalt and sidewalk values are
+// lighter and cooler, matching the road texture — the old warm browns
+// stacked into a tan-dominated drive shot.
 export const PALETTE = {
   skyDay: 0x87bfe8,
   skySunset: 0xffb070,
   skyNight: 0x0e1a33,
   skyGolden: 0xffc27a,
   fogDay: 0xa8c8e0,
-  fogSunset: 0xffd0a0,
+  fogSunset: 0xffd8b8,
   sunDisc: 0xffe9a8,
   water: 0x2e7f9e,
   sand: 0xe8d29a,
   grass: 0x7d9a62,
-  asphalt: 0x38332d,
-  sidewalk: 0xb0a894,
+  asphalt: 0x4a4640,
+  sidewalk: 0xc0b9a9,
   buildingGlass: 0x9fc4d8,
 };
 

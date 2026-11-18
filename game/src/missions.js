@@ -49,7 +49,7 @@ export const MISSIONS = [
     reward: 900,
     objectives: [
       { type: 'goto', spot: 'beach', text: 'Ke garis start di Beachfront' },
-      { type: 'race', spots: ['industrial', 'downtown', 'marina', 'beach'], time: 150, text: 'Lewati 4 checkpoint!' },
+      { type: 'race', spots: ['industrial', 'downtown', 'marina', 'beach'], time: 165, text: 'Lewati 4 checkpoint!' },
     ],
   },
   {

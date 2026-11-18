@@ -57,17 +57,20 @@ function stageTitle(ctx) {
   const heroCar = new Car(heroModel, 'sport');
   heroCar.driver = null;
   heroCar.parked = true;
-  heroCar.place(315, -5, 0.1);
+  // Round 13: the hero sits at a 3/4 rear angle (heading 0.3), so the
+  // title frame shows flank + rear — spoiler, rims, light bar — never
+  // a dead-on rectangle from behind.
+  heroCar.place(315, -5, 0.3);
   ctx.traffic.parked.push(heroCar);
   ctx.player.cameraYaw = Math.PI * 0.75;
   return {
     simulateSeconds: 0, throttle: 0, steer: 0, orbit: false,
     // Low and close, north-west of the car looking east-south-east down
-    // the beach: the red hero fills the lower-right of the frame in a 3/4
-    // rear view (flank + spoiler + plate + rims all readable), clear of
-    // the centred title text and button, with the sea and the pier on the
-    // left of the frame.
-    cameraPose: { pos: [306, 2.8, -18], look: [340, 1.5, 2] },
+    // the beach: round 13 moves the camera from ~16 m to ~8.5 m, so the
+    // red hero fills the lower-right of the frame (about twice as big
+    // as before) in a 3/4 rear view, clear of the centred title text
+    // and button, with the sea and the pier on the left of the frame.
+    cameraPose: { pos: [311, 2.3, -12.5], look: [330, 1.2, -2] },
   };
 }
 
@@ -154,6 +157,15 @@ function stageDrive(name, spawn, ctx) {
   stageCar(170, -3.5, 'van', 0xd8d8d8);
   stageCar(200, -3.5, 'sedan', 0xff3b30);
   stageCar(225, -3.5, 'pickup', 0xff7a1a);
+
+  // Round 13: a police car IN the drive shot's frame. The live pursuit
+  // cops (SBPD-12/27 in the dispatch list) spawn 55-110 m away and never
+  // entered the frame in 1.6 s, so the drive shot read cop-less. This one
+  // is staged 48 m ahead in the player's own lane at traffic speed: the
+  // player only closes ~23 m in the sim, so at capture it sits ~25 m
+  // ahead, centre-right, light bar visible — a pursuit you can see.
+  // Only the drive shot: the chase already has a cop in frame.
+  if (name === 'drive') stageCar(48, 3.5, 'police', 0x1a1d22);
 
   // Parked cars along the beachfront kerb: the street is never empty.
   const parkCar = (x, z, heading, typeName, color) => {

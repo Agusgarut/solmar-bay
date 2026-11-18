@@ -78,7 +78,9 @@ The four staged shots (`screenshots/`) are deterministic: run the game
 with `?shot=start|drive|mission|chase&seed=7` and the same seed always
 paints the same frame. The local test harness in `~/workspace/pwtest/`
 (Playwright) re-takes them and checks for console errors and external
-requests.
+requests. Round 13 re-staged them: bigger hero on the title screen, a
+police car and dust in the drive shot, light-grey asphalt, feathered
+palms and a full-width tail light bar.
 
 ## Tech
 

@@ -152,7 +152,7 @@ export function createAudio() {
         engineGain.gain.value = 0.04;
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 420;
+        filter.frequency.value = 460;
         engineOsc.connect(filter);
         filter.connect(engineGain);
         engineGain.connect(master);

@@ -131,11 +131,14 @@ export function createHud() {
     wantedEl.textContent = stars;
     wantedEl.classList.toggle('hot', state.wanted > 0);
     // Wanted state line, like the reference's "IN SIGHT" under the stars.
+    // Round 13: the dot stays red while the word is white on a solid
+    // pill (see #wanted-state) — a red dot + white word reads at a
+    // glance, a small red word on pink sky did not.
     if (state.wanted > 0) {
-      wantedState.textContent = '● TERLIHAT';
+      wantedState.innerHTML = '<span style="color:#ff4f4f">●</span> TERLIHAT';
       wantedState.classList.remove('safe');
     } else {
-      wantedState.textContent = '○ AMAN';
+      wantedState.innerHTML = '<span style="color:rgba(255,255,255,.6)">○</span> AMAN';
       wantedState.classList.add('safe');
     }
     // Weapon chips under the stars: the equipped weapon is highlighted.

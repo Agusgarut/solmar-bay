@@ -15,7 +15,7 @@ const TRAFFIC_MIX = [
   ['sport', 2], ['muscle', 2], ['pickup', 1],
   ['convertible', 1], ['truck', 1],
 ];
-const TRAFFIC_SPEED = 13;
+const TRAFFIC_SPEED = 13.5;
 const CAR_AHEAD_DIST = 11; // slow down when a car is this close ahead
 const CAR_AHEAD_CONE = 7; // ...and within this cone of the nose
 // The signalised intersections: only these crossings have lights, so

@@ -174,7 +174,7 @@ export function createCombat(scene, rng) {
         } else {
           enemy.shootTimer -= dt;
           if (enemy.shootTimer <= 0) {
-            enemy.shootTimer = 1.2 + rng() * 1.2;
+            enemy.shootTimer = 1.1 + rng() * 1.1;
             // Inaccurate return fire: hits about a third of the time, and
             // more often the hotter the wanted level is.
             const from = new THREE.Vector3(enemy.x, 1.4, enemy.z);

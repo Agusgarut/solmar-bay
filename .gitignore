@@ -20,3 +20,8 @@ coverage/
 # Staging temp files (screenshot dumps, scratch)
 tmp/
 *.tmp
+*.bak
+
+# Playwright test artifacts (local harness runs)
+playwright-report/
+test-results/

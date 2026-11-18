@@ -60,6 +60,11 @@ export function shuffle(rng, list) {
   return out;
 }
 
+// One of two values, picked with the seeded generator.
+export function oneOf(rng, a, b) {
+  return rng() < 0.5 ? a : b;
+}
+
 // Pick one entry of `entries`, where each entry is [value, weight].
 export function weighted(rng, entries) {
   if (!entries || entries.length === 0) return undefined;

@@ -25,9 +25,9 @@ function createPedModel(rng) {
   head.position.y = 1.64;
   head.castShadow = true;
   group.add(head);
-  // About a third of the crowd wears a cap: a flat top plus a brim, so the
-  // heads aren't all identical boxes from the chase cam.
-  if (rng() < 0.35) {
+  // About two fifths of the crowd wears a cap: a flat top plus a brim, so
+  // the heads aren't all identical boxes from the chase cam.
+  if (rng() < 0.4) {
     const cap = new THREE.Mesh(
       new THREE.BoxGeometry(0.36, 0.1, 0.34),
       new THREE.MeshLambertMaterial({ color: pick(rng, CAP_COLORS) }),

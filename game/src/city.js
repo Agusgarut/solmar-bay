@@ -56,37 +56,41 @@ function makeRoadTexture() {
   canvas.width = 512;
   canvas.height = 64;
   const g = canvas.getContext('2d');
-  // Light warm-grey base: sunlit asphalt like the new reference — light
+  // Light cool-grey base: sunlit asphalt like the new reference — light
   // enough to read bright at sunset, grey enough to stay asphalt, never
-  // a brown desert. The warm sun does the warming; the base stays grey.
-  g.fillStyle = '#6e675c';
+  // a brown desert. Round 13: the old warm-grey base (#6e675c) plus the
+  // warm emissive and warm sheen stacked into brown-tan in the drive
+  // shot — the base is lighter and cooler now, and the warm sun does
+  // the warming; the base stays grey.
+  g.fillStyle = '#8d8880';
   g.fillRect(0, 0, 512, 64);
   // Soft tonal blotches: low alpha so the 512px tile repeats without an
   // obvious seam, just enough grain to break the flat colour.
   for (let i = 0; i < 26; i += 1) {
     const light = rng01() < 0.5;
-    g.fillStyle = light ? 'rgba(112, 102, 90, 0.10)' : 'rgba(30, 26, 22, 0.14)';
+    g.fillStyle = light ? 'rgba(150, 142, 130, 0.10)' : 'rgba(40, 36, 32, 0.10)';
     const w = 20 + rng01() * 60;
     const h = 6 + rng01() * 18;
     g.fillRect(rng01() * 512, rng01() * 64, w, h);
   }
   // Tyre tracks: darker bands along the wheel lines, constant along U so
   // they tile seamlessly down the whole road.
-  g.fillStyle = 'rgba(28, 24, 20, 0.20)';
+  g.fillStyle = 'rgba(40, 36, 32, 0.13)';
   g.fillRect(0, 12, 512, 7);
   g.fillRect(0, 45, 512, 7);
   // Fine grain: hundreds of tiny speckles, so the asphalt reads as
   // textured aggregate at close range instead of a flat grey slab.
   for (let i = 0; i < 900; i += 1) {
     const v = rng01();
-    g.fillStyle = v < 0.5 ? 'rgba(255, 240, 210, 0.05)' : 'rgba(20, 16, 12, 0.07)';
+    g.fillStyle = v < 0.5 ? 'rgba(255, 244, 224, 0.05)' : 'rgba(20, 16, 12, 0.06)';
     g.fillRect(rng01() * 512, rng01() * 64, 1 + rng01() * 1.5, 1);
   }
-  // Sunlit sheen band on the sun side of the road, stronger now that the
-  // base is lighter: the road must glow a little in the sunset.
+  // Sunlit sheen band on the sun side of the road — cooler and weaker
+  // than before, so it reads as hazy light on grey asphalt, not a warm
+  // wash turning the whole road tan.
   const sheen = g.createLinearGradient(0, 0, 0, 20);
-  sheen.addColorStop(0, 'rgba(255, 225, 170, 0.22)');
-  sheen.addColorStop(1, 'rgba(255, 225, 170, 0)');
+  sheen.addColorStop(0, 'rgba(255, 242, 222, 0.13)');
+  sheen.addColorStop(1, 'rgba(255, 242, 222, 0)');
   g.fillStyle = sheen;
   g.fillRect(0, 0, 512, 20);
   // Double yellow centre lines, 1 px thin and close together like the
@@ -97,7 +101,7 @@ function makeRoadTexture() {
   g.fillRect(0, 31, 512, 1);
   g.fillRect(0, 33, 512, 1);
   for (let i = 0; i < 14; i += 1) {
-    g.fillStyle = 'rgba(110, 103, 92, 0.55)';
+    g.fillStyle = 'rgba(141, 136, 128, 0.55)';
     g.fillRect(rng01() * 512, 31, 3 + rng01() * 8, 3);
   }
   // White edge lines.
@@ -288,9 +292,12 @@ export function buildCity(scene, rng) {
   // Geometries are pre-rotated flat (rotateY turns a road along X into one
   // along Z), so no per-mesh Euler guesswork is needed.
   const roadTexture = makeRoadTexture();
-  // Sunlit lift: a little warm emissive so the asphalt reads bright in
-  // the sunset instead of going dark brown under the pink sky.
-  const roadMat = new THREE.MeshPhongMaterial({ map: roadTexture, emissive: 0xffc08a, emissiveIntensity: 0.14, shininess: 14, specular: 0x2a241e });
+  // Sunlit lift: a little COOL emissive so the asphalt reads bright in
+  // the sunset instead of going dark brown under the pink sky. Round 13:
+  // the old warm emissive (0xffc08a) was the main brown culprit — a warm
+  // glow on a warm-grey base turned the whole road tan. Cool grey-blue
+  // lift keeps the road grey; the sun still warms it from above.
+  const roadMat = new THREE.MeshPhongMaterial({ map: roadTexture, emissive: 0xb9c2cc, emissiveIntensity: 0.1, shininess: 14, specular: 0x4a5058 });
   const walkMat = new THREE.MeshLambertMaterial({ color: PALETTE.sidewalk });
   const roadGeoX = new THREE.PlaneGeometry(WORLD_HALF * 2, ROAD_WIDTH);
   roadGeoX.rotateX(-Math.PI / 2);
@@ -322,7 +329,7 @@ export function buildCity(scene, rng) {
   stripeCanvas.width = 128;
   stripeCanvas.height = 64;
   const sg = stripeCanvas.getContext('2d');
-  sg.fillStyle = '#3f3833';
+  sg.fillStyle = '#54514b';
   sg.fillRect(0, 0, 128, 64);
   sg.fillStyle = '#f5f2e8';
   for (let i = 0; i < 6; i += 1) sg.fillRect(6 + i * 21, 6, 10, 52);
@@ -921,7 +928,11 @@ export function buildCity(scene, rng) {
     const colors = [];
     const indices = [];
     let vi = 0;
-    const stations = 14;
+    // Round 13: 20 stations instead of 14 — denser stations mean shorter
+    // segments, so the rib curve is smoother and the leaflets overlap
+    // into a continuous feather instead of a row of separate triangles
+    // with gaps (the serrated silhouette in the drive shot).
+    const stations = 20;
     const rib = [];
     for (let i = 0; i <= stations; i += 1) {
       const t = i / stations;
@@ -1002,19 +1013,23 @@ export function buildCity(scene, rng) {
       tri([p0.x, p0.y + 0.03, -w], [p1.x, p1.y + 0.03, -w], [p1.x, p1.y + 0.03, w], ribCol);
       tri([p0.x, p0.y + 0.03, -w], [p1.x, p1.y + 0.03, w], [p0.x, p0.y + 0.03, w], ribCol);
     }
-    // Leaflets: TWO overlapping blades per side at each station. Blade A
+    // Leaflets: THREE overlapping blades per side at each station. Blade A
     // sweeps back along the rib; blade B sits half a station further out
-    // and hangs lower, so the frond's edge reads as a full feather, not
-    // a row of separate needles. Each blade is a blunt-tipped quad, not
-    // a sharp triangle, so the leaflet tips read rounded up close.
+    // and hangs lower; blade C fills the gap between them, mid-length and
+    // mid-droop — so the frond's edge reads as a full feather, not a row
+    // of separate needles. Each blade is a blunt-tipped quad, not a sharp
+    // triangle, so the leaflet tips read rounded up close.
     // Blunt-tip ratios, as fractions of the leaflet length L: how far
     // the tip edge is pulled back from the old sharp apex, and how wide
-    // the tip edge is. Blade A is the wide swept-back blade, blade B the
-    // shorter steeper one hanging below it.
-    const BLADE_A_PULLBACK = 0.2;
-    const BLADE_A_TIP_HALF = 0.16;
-    const BLADE_B_PULLBACK = 0.16;
-    const BLADE_B_TIP_HALF = 0.13;
+    // the tip edge is. Round 13: wider, shorter tips (more pullback,
+    // wider tip edge) so the silhouette is soft and feathery, never a
+    // serrated triangle.
+    const BLADE_A_PULLBACK = 0.28;
+    const BLADE_A_TIP_HALF = 0.2;
+    const BLADE_B_PULLBACK = 0.24;
+    const BLADE_B_TIP_HALF = 0.17;
+    const BLADE_C_PULLBACK = 0.26;
+    const BLADE_C_TIP_HALF = 0.18;
     for (let i = 1; i < stations; i += 1) {
       const p = rib[i];
       const pNext = rib[i + 1];
@@ -1037,12 +1052,24 @@ export function buildCity(scene, rng) {
         const pB = { x: p.x + dirX * segLen * 0.5, y: p.y + dirY * segLen * 0.5 };
         const tipB = [
           pB.x - dirX * L * 0.55,
-          pB.y - L * 0.38,
+          pB.y - L * 0.45,
           side * L * 0.82,
         ];
         const baseB0 = [pB.x, pB.y, 0];
         const baseB1 = [pB.x + dirX * segLen * 0.45, pB.y + dirY * segLen * 0.45, 0];
         quad(...bluntBlade(baseB0, baseB1, tipB, L * BLADE_B_PULLBACK, L * BLADE_B_TIP_HALF), col);
+        // Blade C: mid-length, mid-droop, a quarter station further out —
+        // the filler that closes the gap between A and B so no sky shows
+        // through the frond's edge.
+        const pC = { x: p.x + dirX * segLen * 0.25, y: p.y + dirY * segLen * 0.25 };
+        const tipC = [
+          pC.x - dirX * L * 0.42,
+          pC.y - L * 0.32,
+          side * L * 0.92,
+        ];
+        const baseC0 = [pC.x, pC.y, 0];
+        const baseC1 = [pC.x + dirX * segLen * 0.5, pC.y + dirY * segLen * 0.5, 0];
+        quad(...bluntBlade(baseC0, baseC1, tipC, L * BLADE_C_PULLBACK, L * BLADE_C_TIP_HALF), col);
       }
     }
     const geo = new THREE.BufferGeometry();
@@ -1054,11 +1081,13 @@ export function buildCity(scene, rng) {
   }
   // Longer, heavier fronds than before, darkest on the deep-droop ring
   // (the shaded underside of the crown) and brightest on the upright
-  // ring catching the sun.
-  const palmFrondDeepGeo = makeFrondGeometry(6.6, 0.05, 0.72, 1.0, 0.62);
-  const palmFrondDroopGeo = makeFrondGeometry(6.2, 0.12, 0.6, 0.95, 0.78);
-  const palmFrondMidGeo = makeFrondGeometry(5.6, 0.3, 0.42, 0.85, 0.92);
-  const palmFrondUpGeo = makeFrondGeometry(4.9, 0.55, 0.28, 0.7, 1.0);
+  // ring catching the sun. Round 13: leaflets ~15% longer and tips
+  // curling further down, so the crown reads as soft drooping feathers
+  // like the reference palms, not stiff serrated fans.
+  const palmFrondDeepGeo = makeFrondGeometry(6.6, 0.05, 0.85, 1.15, 0.62);
+  const palmFrondDroopGeo = makeFrondGeometry(6.2, 0.12, 0.72, 1.1, 0.78);
+  const palmFrondMidGeo = makeFrondGeometry(5.6, 0.3, 0.5, 1.0, 0.92);
+  const palmFrondUpGeo = makeFrondGeometry(4.9, 0.55, 0.34, 0.82, 1.0);
   const palmFrondMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true });
   const palmNutGeo = new THREE.SphereGeometry(0.28, 8, 6);
   const palmNutMat = new THREE.MeshLambertMaterial({ color: 0x6a4a2c });
@@ -1335,7 +1364,7 @@ export function buildCity(scene, rng) {
   sun.shadow.bias = -0.0006;
   scene.add(sun);
   scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight(0xd8c8e8, 0x8a7a5a, 0.7);
+  const hemi = new THREE.HemisphereLight(0xd8c8e8, 0x8a8478, 0.7);
   scene.add(hemi);
   scene.fog = new THREE.Fog(PALETTE.fogDay, 150, 650);
 

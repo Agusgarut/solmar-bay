@@ -48,12 +48,15 @@ export function createEffects(scene) {
   // Soft dust-trail sprites: billowing clouds behind a fast car, like the
   // new reference's dust — real sprites that grow and fade, never hard
   // squares or boxes. Each sprite has its own material so it can fade
-  // independently.
-  const DUST_SPRITES = 28;
+  // independently. Round 13: bigger, warmer and more opaque — the old
+  // pale puffs vanished against the grey road at 159 km/h, and the
+  // drive shot read dustless. 40 sprites so a long high-speed trail
+  // never runs out of pool mid-frame.
+  const DUST_SPRITES = 40;
   const dustTex = makeSoftDotTexture();
   const dustPool = [];
   for (let i = 0; i < DUST_SPRITES; i += 1) {
-    const mat = new THREE.SpriteMaterial({ map: dustTex, color: 0xe8dcc8, transparent: true, opacity: 0, depthWrite: false });
+    const mat = new THREE.SpriteMaterial({ map: dustTex, color: 0xddc9a3, transparent: true, opacity: 0, depthWrite: false });
     const sprite = new THREE.Sprite(mat);
     sprite.visible = false;
     sprite.position.set(0, -100, 0);
@@ -66,8 +69,8 @@ export function createEffects(scene) {
     dustCursor = (dustCursor + 1) % DUST_SPRITES;
     d.life = 0.9 + Math.random() * 0.4;
     d.maxLife = d.life;
-    d.startScale = 2.5 + strength;
-    d.growTo = 5 + strength * 2.5 + Math.random();
+    d.startScale = 3.2 + strength * 1.6;
+    d.growTo = 5 + strength * 2.2 + Math.random();
     d.vx = vx + (Math.random() - 0.5) * 1.5;
     d.vy = vy + Math.random() * 0.6;
     d.vz = vz + (Math.random() - 0.5) * 1.5;
