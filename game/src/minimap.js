@@ -1,8 +1,9 @@
-// The minimap: a small 2D canvas in the HUD corner. Roads, water and the
-// beach are drawn to scale, then the player (white arrow), police (red),
-// traffic (grey dots) and the mission target (yellow diamond).
+// The minimap: a large 2D canvas in the HUD corner, GTA-style. Roads,
+// water and the beach are drawn to scale, district names are labelled, then
+// the player (white arrow), police (red), traffic (grey dots) and the
+// mission target (yellow diamond).
 
-import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, BEACH_X, WATER_X } from './config.js';
+import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, BEACH_X, WATER_X, DISTRICTS } from './config.js';
 
 export function createMinimap() {
   const canvas = document.getElementById('minimap');
@@ -31,6 +32,14 @@ export function createMinimap() {
         const [, z] = toMap(0, p);
         ctx.fillRect(0, z - (ROAD_WIDTH / 2) * SCALE, SIZE, ROAD_WIDTH * SCALE);
       }
+      // District names, so the map reads as the city, not a bare grid.
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.font = 'bold 10px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      for (const d of DISTRICTS) {
+        const [x, z] = toMap((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2);
+        ctx.fillText(d.name.toUpperCase(), x, z);
+      }
       // Traffic dots.
       ctx.fillStyle = '#c8c8c8';
       for (const car of state.trafficCars) {
@@ -50,10 +59,10 @@ export function createMinimap() {
         const [x, z] = toMap(state.missionTarget.x, state.missionTarget.z);
         ctx.fillStyle = '#ffd23b';
         ctx.beginPath();
-        ctx.moveTo(x, z - 6);
-        ctx.lineTo(x + 5, z);
-        ctx.lineTo(x, z + 6);
-        ctx.lineTo(x - 5, z);
+        ctx.moveTo(x, z - 8);
+        ctx.lineTo(x + 7, z);
+        ctx.lineTo(x, z + 8);
+        ctx.lineTo(x - 7, z);
         ctx.closePath();
         ctx.fill();
       }
@@ -74,9 +83,9 @@ export function createMinimap() {
       ctx.fill();
       // Compass: N at the top edge.
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px system-ui, sans-serif';
+      ctx.font = 'bold 13px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('N', SIZE / 2, 12);
+      ctx.fillText('N', SIZE / 2, 14);
       // Player view cone: a faint wedge showing where Dani looks.
       const [px2, pz2] = toMap(state.playerX, state.playerZ);
       ctx.save();
@@ -85,8 +94,8 @@ export function createMinimap() {
       ctx.fillStyle = 'rgba(255,255,255,0.14)';
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(-14, -34);
-      ctx.lineTo(14, -34);
+      ctx.lineTo(-18, -44);
+      ctx.lineTo(18, -44);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
@@ -99,10 +108,10 @@ export function createMinimap() {
       ctx.rotate(Math.PI - state.heading);
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.moveTo(0, -6);
-      ctx.lineTo(4, 5);
-      ctx.lineTo(0, 2);
-      ctx.lineTo(-4, 5);
+      ctx.moveTo(0, -8);
+      ctx.lineTo(5, 6);
+      ctx.lineTo(0, 3);
+      ctx.lineTo(-5, 6);
       ctx.closePath();
       ctx.fill();
       ctx.restore();

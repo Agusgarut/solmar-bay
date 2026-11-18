@@ -78,6 +78,28 @@ export function createCarModel(typeName, color, rng) {
       strut.position.set(side * (type.width / 2 - 0.35), 0.92, -type.length / 2 + 0.15);
       group.add(strut);
     }
+    // Front splitter and side skirts: the fast cars sit low and wide, so
+    // they read as sports cars from the chase cam, not plain boxes.
+    const splitter = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.94, 0.12, 0.34), darkMat);
+    splitter.position.set(0, 0.2, type.length / 2 + 0.06);
+    group.add(splitter);
+    for (const side of [-1, 1]) {
+      const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, type.length * 0.62), darkMat);
+      skirt.position.set(side * (type.width / 2 + 0.02), 0.24, 0);
+      group.add(skirt);
+    }
+    // Twin exhaust tips at the rear.
+    const exhaustGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.22, 8);
+    exhaustGeo.rotateX(Math.PI / 2);
+    for (const side of [-1, 1]) {
+      const tip = new THREE.Mesh(exhaustGeo, darkMat);
+      tip.position.set(side * (type.width / 2 - 0.5), 0.3, -type.length / 2 - 0.06);
+      group.add(tip);
+    }
+    // Roof antenna fin on the hero car.
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.4), darkMat);
+    fin.position.set(0, 1.56, -type.length * 0.22);
+    group.add(fin);
     // Two-tone white roof: the hero car reads bright from behind and
     // above, not as a dark slab.
     const whiteRoof = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.88, 0.06, type.length * 0.44), new THREE.MeshLambertMaterial({ color: 0xf2f2ee }));
@@ -160,16 +182,17 @@ export function createCarModel(typeName, color, rng) {
     lightBar = { redMat, blueMat };
   }
 
-  // Wheels with light hubcaps.
-  const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.28, 12);
+  // Wheels with light hubcaps, big enough to read from the chase cam —
+  // chunky tyres, not hidden discs under the body.
+  const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.34, 12);
   wheelGeo.rotateZ(Math.PI / 2);
-  const hubGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.3, 10);
+  const hubGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.36, 10);
   hubGeo.rotateZ(Math.PI / 2);
   const hubMat = new THREE.MeshLambertMaterial({ color: 0xb8bcc2 });
   const wheels = [];
   for (const [wx, wz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
     const wheel = new THREE.Mesh(wheelGeo, darkMat);
-    wheel.position.set(wx * (type.width / 2 - 0.1), 0.36, wz * (type.length / 2 - 0.75));
+    wheel.position.set(wx * (type.width / 2 - 0.08), 0.42, wz * (type.length / 2 - 0.75));
     wheel.castShadow = true;
     group.add(wheel);
     const hub = new THREE.Mesh(hubGeo, hubMat);

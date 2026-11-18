@@ -12,7 +12,6 @@ export function createHud() {
   const weaponEl = document.getElementById('weapon');
   const speedEl = document.getElementById('speed');
   const objectiveEl = document.getElementById('objective');
-  const districtEl = document.getElementById('district');
   const clockEl = document.getElementById('clock');
   const toastEl = document.getElementById('toast');
   const briefingEl = document.getElementById('briefing');
@@ -30,6 +29,7 @@ export function createHud() {
   const missionPanel = document.getElementById('mission-panel');
   const missionIndex = document.getElementById('mission-index');
   const missionTimer = document.getElementById('mission-timer');
+  const missionChapter = document.getElementById('mission-chapter');
   const missionTitle = document.getElementById('mission-title');
   const missionObjective = document.getElementById('mission-objective');
   const missionNext = document.getElementById('mission-next');
@@ -43,6 +43,7 @@ export function createHud() {
   const dialogueEl = document.getElementById('dialogue');
   const dialogueAvatar = document.getElementById('dialogue-avatar');
   const dialogueSpeaker = document.getElementById('dialogue-speaker');
+  const dialogueRole = document.getElementById('dialogue-role');
   const dialogueText = document.getElementById('dialogue-text');
   const bannerEl = document.getElementById('mission-banner');
   const bannerIndex = document.getElementById('mission-banner-index');
@@ -63,6 +64,14 @@ export function createHud() {
     Zara: { skin: '#e8b88a', hair: '#3a2a1a', shirt: '#2ec4b6', bg: '#123f3a' },
     Beni: { skin: '#8a5a38', hair: '#101010', shirt: '#ff7a1a', bg: '#4a2c12' },
     Dani: { skin: '#c98a5f', hair: '#1c1410', shirt: '#2e6fc2', bg: '#1c2f4a' },
+  };
+  // Character roles for the dialogue card, like the reference's
+  // "JUNO REYES / WHEELWOMAN" line under the portrait.
+  const ROLES = {
+    Rico: 'TANGAN KANAN',
+    Zara: 'PEMBALAP',
+    Beni: 'DEBITUR',
+    Dani: 'KURIR',
   };
   function portraitSvg(speaker) {
     const p = PORTRAITS[speaker] || { skin: '#c98a5f', hair: '#333333', shirt: '#8a4fc2', bg: '#2a2a3a' };
@@ -114,6 +123,7 @@ export function createHud() {
     showDialogue(speaker, text, seconds) {
       dialogueAvatar.innerHTML = portraitSvg(speaker);
       dialogueSpeaker.textContent = speaker || '';
+      dialogueRole.textContent = ROLES[speaker] || '';
       dialogueText.textContent = text;
       dialogueEl.classList.remove('hidden');
       if (dialogueTimer) window.clearTimeout(dialogueTimer);
@@ -157,23 +167,44 @@ export function createHud() {
       // Speed, big, with km/h.
       speedEl.innerHTML = state.inCar
         ? `${Math.round(Math.abs(state.speed) * 3.6)} <small>km/h</small>` : '';
-      objectiveEl.textContent = state.objective || 'Bebas — jalan-jalan, cari mobil, atau mulai misi (M).';
-      districtEl.textContent = state.district;
+      // The top-centre objective pill is retired: the always-on mission
+      // tracker panel now carries the objective (active or next mission).
+      objectiveEl.classList.add('hidden');
       minimapLabel.textContent = state.street ? `${state.district.toUpperCase()} · ${state.street}` : state.district;
       crosshair.classList.toggle('hidden', !state.showCrosshair);
       const hours = Math.floor(state.timeOfDay);
       const minutes = Math.floor((state.timeOfDay - hours) * 60);
       clockEl.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-      // Mission tracker panel.
-      if (state.mission) {
-        missionPanel.classList.remove('hidden');
-        missionIndex.textContent = `MISI ${state.mission.index}/${state.mission.total}`;
-        missionTimer.textContent = state.mission.timer || '';
-        missionTitle.textContent = state.mission.title;
-        missionObjective.textContent = state.mission.objective;
-        missionNext.textContent = state.mission.next || '';
+      // Mission tracker panel: always visible, like the reference's
+      // always-on mission panel. During a mission it shows the active job;
+      // in free-roam it shows the next job; when all are done, the legend.
+      const mission = state.mission || null;
+      const next = !mission ? state.nextMission : null;
+      missionPanel.classList.remove('hidden');
+      if (mission) {
+        missionIndex.textContent = `MISI ${mission.index}/${mission.total}`;
+        missionIndex.classList.remove('next');
+        missionTimer.textContent = mission.timer || '';
+        missionChapter.textContent = mission.chapter || '';
+        missionTitle.textContent = mission.title;
+        missionObjective.textContent = mission.objective;
+        missionNext.textContent = mission.next || '';
+      } else if (next) {
+        missionIndex.textContent = 'BERIKUTNYA';
+        missionIndex.classList.add('next');
+        missionTimer.textContent = '';
+        missionChapter.textContent = next.chapter || '';
+        missionTitle.textContent = next.title;
+        missionObjective.textContent = next.objective;
+        missionNext.textContent = next.next || '';
       } else {
-        missionPanel.classList.add('hidden');
+        missionIndex.textContent = 'SELESAI';
+        missionIndex.classList.add('next');
+        missionTimer.textContent = '';
+        missionChapter.textContent = 'SOLMAR BAY';
+        missionTitle.textContent = 'Legenda Solmar Bay';
+        missionObjective.textContent = 'Semua misi selesai! Kamu legenda kota ini.';
+        missionNext.textContent = '';
       }
       // Police dispatch list, only while wanted.
       const dispatch = state.dispatch || [];
@@ -183,7 +214,9 @@ export function createHud() {
         if (key !== lastDispatchKey) {
           lastDispatchKey = key;
           dispatchRows.innerHTML = '';
-          for (const d of dispatch) {
+          // At most 3 units, then a "+N more" line — the list must never
+          // grow down into the minimap.
+          for (const d of dispatch.slice(0, 3)) {
             const row = document.createElement('div');
             row.className = 'dispatch-row';
             const statusClass = d.status === 'RAMMING' || d.status === 'ROADBLOCK'
@@ -191,6 +224,12 @@ export function createHud() {
               : d.status === 'FOOT' ? 'dispatch-status foot' : 'dispatch-status pursuit';
             row.innerHTML = `<span>${d.unit}</span><span class="dispatch-dist">${d.dist} m</span><span class="${statusClass}">${d.status}</span>`;
             dispatchRows.appendChild(row);
+          }
+          if (dispatch.length > 3) {
+            const more = document.createElement('div');
+            more.className = 'dispatch-more';
+            more.textContent = `+${dispatch.length - 3} unit lagi di lokasi`;
+            dispatchRows.appendChild(more);
           }
         }
       } else {

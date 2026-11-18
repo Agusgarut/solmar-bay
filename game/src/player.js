@@ -4,7 +4,7 @@
 // player wherever they are — on foot or in a car.
 
 import * as THREE from 'three';
-import { WALK_SPEED, RUN_SPEED, JUMP_SPEED, GRAVITY, PLAYER_RADIUS, CAMERA_DISTANCE, CAMERA_HEIGHT, clamp, angleLerp } from './config.js';
+import { WALK_SPEED, RUN_SPEED, JUMP_SPEED, GRAVITY, PLAYER_RADIUS, CAMERA_DISTANCE, CAMERA_HEIGHT, CAMERA_CAR_DISTANCE, CAMERA_CAR_HEIGHT, clamp, angleLerp } from './config.js';
 
 export function createPlayerCharacter() {
   const group = new THREE.Group();
@@ -151,9 +151,11 @@ export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, playe
   const targetYaw = player.inCar ? focusHeading : player.cameraYaw;
   const yaw = angleLerp(player.cameraYaw, targetYaw, Math.min(1, dt * (player.inCar ? 2.2 : 5)));
   player.cameraYaw = yaw;
-  const dist = player.inCar ? CAMERA_DISTANCE + 2.2 : CAMERA_DISTANCE;
-  // Pitch tilts the camera: low pitch is a low, cinematic chase cam.
-  const height = (player.inCar ? CAMERA_HEIGHT + 0.9 : CAMERA_HEIGHT) * (0.7 + player.cameraPitch * 0.9);
+  const dist = player.inCar ? CAMERA_CAR_DISTANCE : CAMERA_DISTANCE;
+  // Pitch tilts the camera: low pitch is a low, cinematic chase cam. In a
+  // car the camera sits low and close (GTA-style) so the car fills the
+  // lower third of the frame; on foot it stays further back.
+  const height = (player.inCar ? CAMERA_CAR_HEIGHT : CAMERA_HEIGHT) * (0.7 + player.cameraPitch * 0.9);
   let cx = focusX - Math.sin(yaw) * dist;
   let cz = focusZ - Math.cos(yaw) * dist;
   let cy = focusY + height;
@@ -164,10 +166,21 @@ export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, playe
     cy += (Math.random() - 0.5) * jitter * 0.6;
     cz += (Math.random() - 0.5) * jitter;
   }
-  camera.position.x += (cx - camera.position.x) * Math.min(1, dt * 7);
-  camera.position.y += (cy - camera.position.y) * Math.min(1, dt * 7);
-  camera.position.z += (cz - camera.position.z) * Math.min(1, dt * 7);
-  camera.lookAt(focusX, focusY + 1.4, focusZ);
+  // The camera chases a fast car: at 44 m/s a slow lerp trails metres
+  // behind, so the car shrinks in the frame. In a car the follow is much
+  // stiffer, and when the camera is far from its target (spawn, teleport,
+  // screenshot staging) it snaps instead of chasing for seconds.
+  const gap = Math.hypot(cx - camera.position.x, cy - camera.position.y, cz - camera.position.z);
+  if (gap > 12) {
+    camera.position.set(cx, cy, cz);
+  } else {
+    const rate = player.inCar ? 16 : 7;
+    const k = Math.min(1, dt * rate);
+    camera.position.x += (cx - camera.position.x) * k;
+    camera.position.y += (cy - camera.position.y) * k;
+    camera.position.z += (cz - camera.position.z) * k;
+  }
+  camera.lookAt(focusX, focusY + (player.inCar ? 1.9 : 1.4), focusZ);
 }
 
 export function clampCameraPitch(player, value) {

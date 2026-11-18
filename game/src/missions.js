@@ -279,12 +279,30 @@ export function createMissions(scene) {
       return {
         index: current.index + 1,
         total: MISSIONS.length,
+        chapter: `BAB ${current.index + 1}`,
         title: current.mission.title,
         objective: this.objectiveText(),
         next: next ? `NEXT: ${next.text}` : 'Terakhir — selesaikan!',
         timer,
         progress,
         reward: current.mission.reward,
+      };
+    },
+    // The next mission when none is active, so the HUD tracker never goes
+    // blank in free-roam: it always shows what comes next.
+    nextMissionInfo(index) {
+      const mission = MISSIONS[index];
+      if (!mission) return null;
+      return {
+        index: index + 1,
+        total: MISSIONS.length,
+        chapter: `BAB ${index + 1}`,
+        title: mission.title,
+        objective: `Tekan M untuk mulai — ${mission.objectives[0].text}`,
+        next: `Hadiah $${mission.reward.toLocaleString('en-US')}`,
+        timer: '',
+        progress: '',
+        reward: mission.reward,
       };
     },
   };

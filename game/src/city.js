@@ -164,7 +164,8 @@ export function buildCity(scene, rng) {
     }
   }
 
-  // Crosswalks at the four central intersections: striped planes.
+  // Crosswalks at every major intersection: striped planes, so every
+  // crossing a drive passes reads as a real crossing, not bare asphalt.
   const stripeCanvas = document.createElement('canvas');
   stripeCanvas.width = 128;
   stripeCanvas.height = 64;
@@ -180,8 +181,8 @@ export function buildCity(scene, rng) {
   const crossGeoZ = crossGeo.clone();
   crossGeoZ.rotateY(Math.PI / 2);
   const crossMat = new THREE.MeshLambertMaterial({ map: stripeTex });
-  for (const ix of [-45, 45]) {
-    for (const iz of [-45, 45]) {
+  for (const ix of [-135, -45, 45, 135]) {
+    for (const iz of [-135, -45, 45, 135]) {
       for (const [dx, dz, geo] of [[-11, 0, crossGeoZ], [11, 0, crossGeoZ], [0, -11, crossGeo], [0, 11, crossGeo]]) {
         const cross = new THREE.Mesh(geo, crossMat);
         cross.position.set(ix + dx, 0.04, iz + dz);
@@ -189,6 +190,26 @@ export function buildCity(scene, rng) {
         group.add(cross);
       }
     }
+  }
+
+  // Stop signs at a few intersections: a red octagon on a pole, so the
+  // street furniture reads at a glance from the chase cam.
+  const stopGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.06, 8);
+  stopGeo.rotateX(Math.PI / 2);
+  const stopMat = new THREE.MeshLambertMaterial({ color: 0xc22222, emissive: 0x881111, emissiveIntensity: 0.4 });
+  const stopPoleMat = new THREE.MeshLambertMaterial({ color: 0x2c2f33 });
+  const stopPoleGeo = new THREE.CylinderGeometry(0.07, 0.09, 2.6, 6);
+  for (const [sx, sz, rotY] of [
+    [-45, -54, 0], [45, 54, Math.PI], [-135, 36, Math.PI / 2], [135, -36, -Math.PI / 2],
+    [45, -54, 0], [-45, 54, Math.PI], [225, -54, 0], [-225, 54, Math.PI],
+  ]) {
+    const pole = new THREE.Mesh(stopPoleGeo, stopPoleMat);
+    pole.position.set(sx, 1.3, sz);
+    group.add(pole);
+    const sign = new THREE.Mesh(stopGeo, stopMat);
+    sign.position.set(sx, 2.85, sz);
+    sign.rotation.y = rotY;
+    group.add(sign);
   }
 
   // Traffic lights at the major intersections. One head per corner pair:
@@ -227,6 +248,14 @@ export function buildCity(scene, rng) {
   const facadeTextures = FACADE_COLORS.map((c) => makeFacadeTexture(rng, c, false));
   const glassTextures = GLASS_COLORS.map((c) => makeFacadeTexture(rng, c, true));
   const roofColors = [0xb5654a, 0x8a5a3c, 0x6b7c8a, 0x9c8a6a];
+  // Shopfront awnings: bright striped canopies over the ground floor, so
+  // the streets read as shops at a glance, not blank facades.
+  const awningMats = [
+    new THREE.MeshLambertMaterial({ color: 0xff5e8a }),
+    new THREE.MeshLambertMaterial({ color: 0x2ec4b6 }),
+    new THREE.MeshLambertMaterial({ color: 0xffb13b }),
+    new THREE.MeshLambertMaterial({ color: 0x4f9dff }),
+  ];
   const ranges = blockRanges();
   const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
   const NEON_SIGNS = [
@@ -289,6 +318,17 @@ export function buildCity(scene, rng) {
       );
       sign.position.set(cx, h * 0.72, cz + d / 2 + 0.35);
       group.add(sign);
+    }
+    // Shopfront awning on low street-level buildings: a bright canopy over
+    // the ground floor, so the street reads as shops.
+    if (district !== 'industrial' && h < 30 && rng() < 0.4) {
+      const awning = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.min(w * 0.7, 14), 0.18, 1.4),
+        pick(rng, awningMats),
+      );
+      awning.position.set(cx, 3.4, cz + d / 2 + 0.7);
+      awning.castShadow = true;
+      group.add(awning);
     }
     return building;
   }

@@ -384,6 +384,7 @@ function updateGame(dt, scripted) {
     inCar: !!player.inCar,
     objective: missions.objectiveText(),
     mission: missions.missionInfo(),
+    nextMission: missions.nextMissionInfo(save.missionIndex),
     dispatch: police.dispatchList(player.x, player.z),
     vehicle: player.inCar ? { name: player.inCar.type.label, condition: player.inCar.health } : null,
     radio: audio.currentStation(),
@@ -414,7 +415,9 @@ function updateGame(dt, scripted) {
   const focusY = player.inCar ? 1 : player.y;
   updateCamera(camera, focus.x, focusY, focus.z, focus.heading, player, dt, drag, dragY);
   const speed01 = player.inCar ? Math.min(1, Math.abs(player.inCar.speed) / 45) : 0;
-  const targetFov = 62 + speed01 * 12;
+  // The speed FOV kick is gentle: a wide lens at speed shrinks the
+  // player car in the frame, which is the opposite of the GTA look.
+  const targetFov = 62 + speed01 * 8;
   if (Math.abs(camera.fov - targetFov) > 0.2) {
     camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3);
     camera.updateProjectionMatrix();
