@@ -6,6 +6,8 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+.vscode/
+*.swp
 
 # Dependencies (none at runtime — the game is static + vendored)
 node_modules/

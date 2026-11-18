@@ -25,7 +25,7 @@ the Solmar Bay Police Department, and work through 6 story missions.
   low amber sun over the sea, neon signs and lit windows as dusk falls.
 - **Beachfront drive**: Ocean boulevard runs right along the sand, palms on
   both sides, the pier and the ferris wheel ahead, umbrellas and strollers
-  on the beach.
+  on the beach, and the SOLMAR FM gantry billboard spanning the road.
 - **Driving**: arcade handling, carjacking (parked and occupied cars), nine
   car types (sedan, coupe, taxi, van, sport, muscle, pickup, convertible,
   box truck), police chases with a helicopter at 3+ stars and roadblocks at

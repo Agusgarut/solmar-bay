@@ -47,7 +47,10 @@ function parseArgs(argv) {
   const wantedPort = portIndex === -1 ? 8080 : Number(argv[portIndex + 1]);
   const port = Number.isInteger(wantedPort) && wantedPort > 0 && wantedPort < 65536 ? wantedPort : 8080;
   const hostIndex = argv.indexOf('--host');
-  const host = hostIndex === -1 ? '127.0.0.1' : argv[hostIndex + 1] || '127.0.0.1';
+  const rawHost = hostIndex === -1 ? undefined : argv[hostIndex + 1];
+  // A flag after --host is another option, not a hostname: `serve.ts
+  // --host --port 9000` must not try to listen on "--port".
+  const host = !rawHost || rawHost.startsWith('-') ? '127.0.0.1' : rawHost;
   return { port, host };
 }
 

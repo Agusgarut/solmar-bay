@@ -55,6 +55,9 @@ export const START_MONEY = 250;
 
 // Day cycle: one full day per 6 minutes of play.
 export const DAY_LENGTH_SECONDS = 360;
+// Weekday abbreviations for the HUD clock, like the reference's "FRI 17:24":
+// the game opens on a Friday and the day rolls over every in-game day.
+export const DAY_NAMES = ['JUM', 'SAB', 'MIN', 'SEN', 'SEL', 'RAB', 'KAM'];
 
 // Camera.
 export const CAMERA_DISTANCE = 8.0;

@@ -70,10 +70,17 @@ export function createCombat(scene, rng) {
     let bestD = Infinity;
     for (const enemy of enemies) {
       if (enemy.dead) continue;
-      const to = new THREE.Vector3(enemy.x - from.x, 1.2 - from.y, enemy.z - from.z);
-      const along = to.dot(dir);
+      // Perpendicular distance to the ray, computed from components:
+      // no temporary Vector3 per enemy per shot.
+      const tx = enemy.x - from.x;
+      const ty = 1.2 - from.y;
+      const tz = enemy.z - from.z;
+      const along = tx * dir.x + ty * dir.y + tz * dir.z;
       if (along < 2 || along > 90) continue;
-      const perp = to.clone().addScaledVector(dir, -along).length();
+      const px = tx - dir.x * along;
+      const py = ty - dir.y * along;
+      const pz = tz - dir.z * along;
+      const perp = Math.sqrt(px * px + py * py + pz * pz);
       if (perp < 2.2 && along < bestD) {
         bestD = along;
         best = enemy;

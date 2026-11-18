@@ -18,6 +18,9 @@ const TRAFFIC_MIX = [
 const TRAFFIC_SPEED = 13;
 const CAR_AHEAD_DIST = 11; // slow down when a car is this close ahead
 const CAR_AHEAD_CONE = 7; // ...and within this cone of the nose
+// The signalised intersections: only these crossings have lights, so
+// only they can hold traffic up.
+const SIGNAL_INTERSECTIONS = [-135, -45, 45, 135];
 
 export function createTraffic(scene, rng, city) {
   const cars = [];
@@ -109,7 +112,7 @@ export function createTraffic(scene, rng, city) {
   // Traffic light state for the next major intersection ahead, if any.
   // Returns 'stop' | 'slow' | null.
   function lightAhead(axis, along, dirSign) {
-    for (const p of [-135, -45, 45, 135]) {
+    for (const p of SIGNAL_INTERSECTIONS) {
       const ahead = (p - along) * dirSign;
       if (ahead <= 1 || ahead >= 16) continue;
       const state = city.lightForAxis(axis);

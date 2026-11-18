@@ -9,7 +9,9 @@ Third-party notices (all bundled locally under game/vendor/):
   Copyright (c) 2010-2026 three.js authors.
 
 Screenshots in screenshots/ are staged frames from the game itself
-(deterministic, seed 7) and share this license.
+(deterministic, seed 7) and share this license. All game code, story
+text, characters and staged screenshots are original work by the entry
+authors; no third-party game assets are included.
 
 SPDX-License-Identifier: MIT
 

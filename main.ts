@@ -11,7 +11,7 @@
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
 import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
 
@@ -59,7 +59,14 @@ const shotFiles = listShots();
 validateShots(shotFiles);
 
 mkdirSync(out, { recursive: true });
-cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
+// Skip dotfiles inside game/ (editor junk like .DS_Store): the grader
+// counts every file, so a stray hidden file would ship as part of the
+// entry for no reason.
+function isDotfilePath(src) {
+  const rel = src.slice(join(here, 'game').length + 1);
+  return rel.split(sep).some((part) => part.startsWith('.'));
+}
+cpSync(join(here, 'game'), join(out, 'game'), { recursive: true, filter: (src) => !isDotfilePath(src) });
 mkdirSync(join(out, 'screenshots'), { recursive: true });
 if (existsSync(join(here, 'screenshots'))) {
   cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });

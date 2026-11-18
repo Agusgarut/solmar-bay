@@ -51,10 +51,18 @@ export function createAudio() {
     }
   }
 
+  // Noise buffers are cached by length: every gunshot, crash and screech
+  // used to allocate a fresh buffer, which is pure garbage per shot in a
+  // shootout. A buffer is read-only once created, so sharing one per
+  // length across sources is safe.
+  const noiseCache = new Map();
   function noiseBuffer(seconds) {
+    const cached = noiseCache.get(seconds);
+    if (cached) return cached;
     const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+    noiseCache.set(seconds, buffer);
     return buffer;
   }
 

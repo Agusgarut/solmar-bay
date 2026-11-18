@@ -5,6 +5,10 @@
 
 import { createCarModel, Car, HERO_RED } from './vehicles.js';
 
+// Staged camera pitch for every shot, so the framing is deterministic:
+// the same seed always paints the same frame.
+const SHOT_CAMERA_PITCH = 0.32;
+
 // Where each scene starts the player (x, z, heading).
 const SPAWNS = {
   // Title on the beachfront: the sun, sea and palms settle around here.
@@ -34,7 +38,7 @@ export function stageShot(name, ctx) {
   ctx.player.health = 100;
   ctx.player.ammo = 24;
   ctx.player.weapon = name === 'mission' ? 'pistol' : 'fists';
-  ctx.player.cameraPitch = 0.32; // deterministic framing for every shot
+  ctx.player.cameraPitch = SHOT_CAMERA_PITCH; // deterministic framing for every shot
   ctx.player.place(spawn.x, spawn.z, spawn.heading);
 
   if (name === 'start') return stageTitle(ctx);

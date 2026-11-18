@@ -7,6 +7,16 @@
 
 import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, SAND_X0, WATERLINE_X, DISTRICTS } from './config.js';
 
+// Landmarks: Solmar Tower (gold square), lighthouse (white) and the
+// ferris wheel (pink) — the map reads as the city, not just roads. One
+// shared list: drawOn runs every 0.15 s, so there is no reason to rebuild
+// the same three entries on every frame.
+const LANDMARKS = [
+  { x: 0, z: -90, color: '#ffd23b', size: 3, circle: false },
+  { x: 335, z: -320, color: '#ffffff', size: 3, circle: true },
+  { x: 322, z: 120, color: '#ff5e8a', size: 4, circle: true },
+];
+
 export function createMinimap() {
   const canvas = document.getElementById('minimap');
   const bigCanvas = document.getElementById('bigmap');
@@ -79,14 +89,8 @@ export function createMinimap() {
       ctx.fill();
     }
 
-    // Landmarks: Solmar Tower (gold square), lighthouse (white) and the
-    // ferris wheel (pink) — the map reads as the city, not just roads.
-    const landmarks = [
-      { x: 0, z: -90, color: '#ffd23b', size: 3, circle: false },
-      { x: 335, z: -320, color: '#ffffff', size: 3, circle: true },
-      { x: 322, z: 120, color: '#ff5e8a', size: 4, circle: true },
-    ];
-    for (const mark of landmarks) {
+    // Landmarks, from the shared list above.
+    for (const mark of LANDMARKS) {
       const [x, z] = toMap(mark.x, mark.z);
       ctx.fillStyle = mark.color;
       if (mark.circle) {

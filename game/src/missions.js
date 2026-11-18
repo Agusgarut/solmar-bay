@@ -129,6 +129,9 @@ export function createMissions(scene) {
   function startMission(index, ctx) {
     const mission = MISSIONS[index];
     if (!mission) return false;
+    // Never overwrite a mission that is already running: starting a new
+    // job mid-job would orphan the old beacon and its counters.
+    if (current) return false;
     current = { mission, index, objectiveIndex: 0 };
     raceIndex = 0;
     killCount = 0;

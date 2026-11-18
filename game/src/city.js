@@ -1007,6 +1007,14 @@ export function buildCity(scene, rng) {
     // and hangs lower, so the frond's edge reads as a full feather, not
     // a row of separate needles. Each blade is a blunt-tipped quad, not
     // a sharp triangle, so the leaflet tips read rounded up close.
+    // Blunt-tip ratios, as fractions of the leaflet length L: how far
+    // the tip edge is pulled back from the old sharp apex, and how wide
+    // the tip edge is. Blade A is the wide swept-back blade, blade B the
+    // shorter steeper one hanging below it.
+    const BLADE_A_PULLBACK = 0.2;
+    const BLADE_A_TIP_HALF = 0.16;
+    const BLADE_B_PULLBACK = 0.16;
+    const BLADE_B_TIP_HALF = 0.13;
     for (let i = 1; i < stations; i += 1) {
       const p = rib[i];
       const pNext = rib[i + 1];
@@ -1024,7 +1032,7 @@ export function buildCity(scene, rng) {
         ];
         const baseA0 = [p.x, p.y, 0];
         const baseA1 = [p.x + dirX * segLen * 0.6, p.y + dirY * segLen * 0.6, 0];
-        quad(...bluntBlade(baseA0, baseA1, tipA, L * 0.2, L * 0.16), col);
+        quad(...bluntBlade(baseA0, baseA1, tipA, L * BLADE_A_PULLBACK, L * BLADE_A_TIP_HALF), col);
         // Blade B: shorter, steeper, hanging below blade A.
         const pB = { x: p.x + dirX * segLen * 0.5, y: p.y + dirY * segLen * 0.5 };
         const tipB = [
@@ -1034,7 +1042,7 @@ export function buildCity(scene, rng) {
         ];
         const baseB0 = [pB.x, pB.y, 0];
         const baseB1 = [pB.x + dirX * segLen * 0.45, pB.y + dirY * segLen * 0.45, 0];
-        quad(...bluntBlade(baseB0, baseB1, tipB, L * 0.16, L * 0.13), col);
+        quad(...bluntBlade(baseB0, baseB1, tipB, L * BLADE_B_PULLBACK, L * BLADE_B_TIP_HALF), col);
       }
     }
     const geo = new THREE.BufferGeometry();

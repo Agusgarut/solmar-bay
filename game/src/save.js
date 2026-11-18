@@ -57,9 +57,11 @@ export function loadSave() {
     // where a number belongs must never poison the game state.
     const merged = { ...defaultSave(), ...parsed };
     const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
-    merged.money = num(merged.money, 250);
-    merged.missionIndex = num(merged.missionIndex, 0);
-    merged.missionsDone = num(merged.missionsDone, 0);
+    // Counters are floored at 0: a hand-edited negative money or mission
+    // index must not put the game in a state it can never leave.
+    merged.money = Math.max(0, num(merged.money, 250));
+    merged.missionIndex = Math.max(0, num(merged.missionIndex, 0));
+    merged.missionsDone = Math.max(0, num(merged.missionsDone, 0));
     merged.carsStolen = num(merged.carsStolen, 0);
     merged.bestWanted = num(merged.bestWanted, 0);
     merged.bestSpeed = num(merged.bestSpeed, 0);

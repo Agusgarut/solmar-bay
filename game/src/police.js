@@ -317,10 +317,9 @@ export function createPolice(scene, rng) {
       return list.slice(0, 5);
     },
 
-    // How many police the current wanted level calls for.
-    wantedForce() {
-      return { cars: Math.min(wanted, 4), foot: wanted >= 2 ? Math.min(wanted - 1, 4) : 0 };
-    },
+    // The live force size lives in maintainForce (foot cops only while
+    // the player is on foot); there is no separate helper to drift out
+    // of sync with it.
 
     // The helicopter, if one is out (screenshots use this to pose it).
     get heli() {

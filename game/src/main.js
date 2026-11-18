@@ -106,7 +106,6 @@ const ctx = {
 
 player.place(0, 45, Math.PI);
 player.health = 100;
-player.money = save.money;
 ctx.missionCar = null;
 
 // ---- Interactions -------------------------------------------------------

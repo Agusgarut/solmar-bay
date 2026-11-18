@@ -52,7 +52,7 @@ export function chance(rng, p) {
 export function shuffle(rng, list) {
   const out = [...list];
   for (let i = out.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rng() * (i + 1));
+    const j = int(rng, 0, i);
     const tmp = out[i];
     out[i] = out[j];
     out[j] = tmp;

@@ -10,6 +10,14 @@ import { pick } from './random.js';
 // The hero's red: the bright supercar red from the new reference entry,
 // not the old hot pink. Every hero call site passes this constant.
 export const HERO_RED = 0xe8112d;
+// Taillight strip: deep red, kept dim on purpose — under ACES tone
+// mapping at exposure 1.45 a bright red emissive washes out to
+// pink-white, so the strip's glow stays low and its brake flare stays
+// modest instead of blowing out.
+export const TAILLIGHT_COLOR = 0xb00014;
+export const TAILLIGHT_EMISSIVE = 0x9e0012;
+export const TAILLIGHT_GLOW = 1.1;
+export const TAILLIGHT_BRAKE_GLOW = 1.6;
 
 export const CAR_TYPES = {
   sedan: { length: 4.4, width: 1.9, accel: 1.0, top: 1.0, color: 0xc23b2e, label: 'Solmar Sedan' },
@@ -379,7 +387,7 @@ export function createCarModel(typeName, color, rng, hero = false) {
     // exposure 1.45 desaturates bright emissive toward white, so the
     // emissive is a DARKER red and the intensity is kept near 1 — the
     // strips glow deep red instead of blowing out.
-    stripMat = new THREE.MeshLambertMaterial({ color: 0xb00014, emissive: 0x9e0012, emissiveIntensity: 1.1 });
+    stripMat = new THREE.MeshLambertMaterial({ color: TAILLIGHT_COLOR, emissive: TAILLIGHT_EMISSIVE, emissiveIntensity: TAILLIGHT_GLOW });
     for (const side of [-1, 1]) {
       box(group, type.width * 0.3, 0.07, 0.04, stripMat, side * type.width * 0.27, 0.58, -type.length / 2 - 0.05, false);
     }
@@ -556,7 +564,7 @@ export function createCarModel(typeName, color, rng, hero = false) {
   };
   group.userData.setBraking = (on) => {
     tailMat.emissiveIntensity = on ? 2.6 : 1.0;
-    if (stripMat) stripMat.emissiveIntensity = on ? 1.6 : 1.1;
+    if (stripMat) stripMat.emissiveIntensity = on ? TAILLIGHT_BRAKE_GLOW : TAILLIGHT_GLOW;
   };
   return group;
 }

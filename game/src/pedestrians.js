@@ -72,11 +72,13 @@ export function createPedestrians(scene, rng) {
   }
 
   // A walker on a sidewalk: picks a road, a side and a direction along it.
+  // Placement uses the seeded generator, not Math.random, so the same seed
+  // always paints the same crowd in the staged screenshots.
   function spawnWalker() {
     const model = createPedModel(rng);
     scene.add(model);
     const road = pick(rng, ROAD_POSITIONS);
-    const along = Math.random() < 0.5;
+    const along = rng() < 0.5;
     const t = range(rng, -WORLD_HALF + 20, WORLD_HALF - 20);
     const side = rng() < 0.5 ? 1 : -1;
     const off = road + side * (ROAD_WIDTH / 2 + 2.5);

@@ -4,6 +4,8 @@
 // the game state each frame. The per-frame update is split into one helper
 // per panel, so each corner of the screen has exactly one place to change.
 
+import { DAY_NAMES } from './config.js';
+
 export function createHud() {
   const root = document.getElementById('hud');
   const healthFill = document.getElementById('health-fill');
@@ -330,8 +332,7 @@ export function createHud() {
       const minutes = Math.floor((state.timeOfDay - hours) * 60);
       // Day of the week, like the reference's "FRI 17:24": the game opens
       // on a Friday and the day rolls over every in-game day.
-      const DAYS = ['JUM', 'SAB', 'MIN', 'SEN', 'SEL', 'RAB', 'KAM'];
-      const day = DAYS[(state.day || 0) % 7];
+      const day = DAY_NAMES[(state.day || 0) % DAY_NAMES.length];
       clockEl.textContent = `${day} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
       // Red flash when the player just took damage.
       if (state.health < lastHealth) {

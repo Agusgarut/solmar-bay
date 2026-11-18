@@ -7,8 +7,12 @@ import * as THREE from 'three';
 const MAX_PARTICLES = 320;
 
 // Soft round sprite for the points: without an alpha map the points render
-// as hard white squares, and a dust trail reads as a row of boxes.
+// as hard white squares, and a dust trail reads as a row of boxes. One
+// shared texture: the points cloud and the dust sprites draw the same
+// 64 px radial dot, so there is no reason to build it twice.
+let softDotTexture = null;
 function makeSoftDotTexture() {
+  if (softDotTexture) return softDotTexture;
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
@@ -19,7 +23,8 @@ function makeSoftDotTexture() {
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, 64, 64);
-  return new THREE.CanvasTexture(canvas);
+  softDotTexture = new THREE.CanvasTexture(canvas);
+  return softDotTexture;
 }
 
 export function createEffects(scene) {

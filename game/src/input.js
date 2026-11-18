@@ -53,6 +53,12 @@ export function createInput(canvas) {
 
   window.addEventListener('keydown', (event) => {
     if (event.repeat) return;
+    // Space/Enter also activate a focused button — the title screen's
+    // MULAI button keeps focus after being clicked — so without this,
+    // pressing Space in play would re-click it and dispatch a pointerdown
+    // on the canvas: an accidental pistol shot. Swallow the browser's
+    // default here; the game still reads the key itself below.
+    if (event.code === 'Space' || event.code === 'Enter') event.preventDefault();
     keys.add(event.code);
     const flag = ACTION_KEYS[event.code];
     if (flag) actions |= flag;
