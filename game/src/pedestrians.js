@@ -63,6 +63,30 @@ export function createPedestrians(scene, rng) {
 
   for (let i = 0; i < 60; i += 1) spawn();
 
+  // A few people sit on the park benches instead of walking: legs bent,
+  // still, watching the street go by.
+  const BENCH_SEATS = [
+    { x: -45, z: -42, heading: 0 }, { x: -45, z: 48, heading: Math.PI },
+    { x: 45, z: -48, heading: Math.PI }, { x: 135, z: 203, heading: 0 },
+    { x: -225, z: -42, heading: Math.PI / 2 }, { x: 225, z: 48, heading: -Math.PI / 2 },
+  ];
+  for (const seat of BENCH_SEATS) {
+    const model = createPedModel(rng);
+    scene.add(model);
+    const ped = {
+      model,
+      x: seat.x, z: seat.z, heading: seat.heading,
+      speed: 0, walkPhase: 0, fleeing: false, fleeTimer: 0, dead: false,
+      seated: true,
+    };
+    // Legs bent forward at the hip, like sitting on a bench.
+    model.userData.leftLeg.rotation.x = -1.35;
+    model.userData.rightLeg.rotation.x = -1.35;
+    model.position.set(ped.x, 0, ped.z);
+    model.rotation.y = ped.heading;
+    peds.push(ped);
+  }
+
   function nearestRoadCoord(value) {
     let best = ROAD_POSITIONS[0];
     for (const p of ROAD_POSITIONS) {
@@ -88,6 +112,18 @@ export function createPedestrians(scene, rng) {
     update(dt) {
       for (const ped of peds) {
         if (ped.dead) continue;
+        if (ped.seated) {
+          // Sitting people stay put; they only stand up and run when
+          // something scary happens right next to them.
+          if (ped.fleeing) {
+            ped.seated = false;
+            ped.fleeTimer = 3 + Math.random() * 2;
+            ped.model.userData.leftLeg.rotation.x = 0;
+            ped.model.userData.rightLeg.rotation.x = 0;
+          } else {
+            continue;
+          }
+        }
         if (ped.fleeing) {
           ped.fleeTimer -= dt;
           if (ped.fleeTimer <= 0) ped.fleeing = false;

@@ -21,3 +21,25 @@ export function pick(rng, list) {
 export function range(rng, lo, hi) {
   return lo + rng() * (hi - lo);
 }
+
+// A shuffled copy of `list` (Fisher-Yates), same seed, same order.
+export function shuffle(rng, list) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Pick one entry of `entries` ([value, weight]) by weight.
+export function weighted(rng, entries) {
+  let total = 0;
+  for (const [, w] of entries) total += w;
+  let roll = rng() * total;
+  for (const [value, w] of entries) {
+    roll -= w;
+    if (roll <= 0) return value;
+  }
+  return entries[entries.length - 1][0];
+}

@@ -10,9 +10,31 @@ export function createAudio() {
   let musicTimer = null;
   let muted = false;
   let musicStep = 0;
+  let stationIndex = 0;
+
+  // Three radio stations, each with its own bass line, tempo and tracks.
+  // The HUD shows the station and the track that is playing.
+  const STATIONS = [
+    {
+      name: 'SOLMAR FM', freq: '101.9', genre: 'Chill Pantai',
+      notes: [55, 55, 65.41, 55, 49, 55, 82.41, 73.42], tempo: 460,
+      tracks: ['Ombak Senja — Lumen Kids', 'Pasir Pagi — The Breakers', 'Senja di Dermaga — Marisol'],
+    },
+    {
+      name: 'WAVE 88.1', freq: '88.1', genre: 'Neon Drive',
+      notes: [49, 49, 58.27, 49, 55, 49, 65.41, 58.27], tempo: 420,
+      tracks: ['Neon Drive — Pink Horizon', 'Midnight Cruise — Vega Nine', 'Chrome Hearts — Lumen Kids'],
+    },
+    {
+      name: 'BAY ROCK', freq: '94.5', genre: 'Rock Pantai',
+      notes: [82.41, 73.42, 65.41, 73.42, 82.41, 98, 82.41, 73.42], tempo: 400,
+      tracks: ['Jalan Panas — The Breakers', 'Gas Pol — Marisol', 'Ombak Besar — Vega Nine'],
+    },
+  ];
+  let trackOrder = [0, 1, 2];
 
   // The bass line of the street loop (A minor, driving).
-  const BASS_NOTES = [55, 55, 65.41, 55, 49, 55, 82.41, 73.42];
+  const BASS_NOTES = STATIONS[0].notes;
 
   function ensure() {
     if (ctx) return true;
@@ -126,6 +148,15 @@ export function createAudio() {
       noiseBurst(0.3, 0.5, 800);
       blip(90, 0.25, 'square', 0.3, 45);
     },
+    // Tyre screech for a handbrake skid.
+    skid() {
+      noiseBurst(0.28, 0.22, 3200);
+    },
+    // Two-tone car horn.
+    horn() {
+      blip(370, 0.22, 'square', 0.12);
+      window.setTimeout(() => blip(466, 0.22, 'square', 0.12), 40);
+    },
     missionDone() {
       [523, 659, 784, 1047].forEach((freq, i) => {
         window.setTimeout(() => blip(freq, 0.22, 'triangle', 0.3), i * 130);
@@ -138,21 +169,43 @@ export function createAudio() {
     },
     startMusic() {
       if (!ensure() || musicTimer) return;
+      const station = STATIONS[stationIndex];
       musicTimer = window.setInterval(() => {
         if (muted) return;
+        const notes = STATIONS[stationIndex].notes;
         const step = musicStep % 8;
-        const note = BASS_NOTES[step];
+        const note = notes[step];
         blip(note, 0.42, 'triangle', 0.22);
         if (step % 2 === 0) noiseBurst(0.04, 0.08, 6000); // hi-hat tick
         if (step === 0 || step === 4) blip(50, 0.18, 'sine', 0.4, 38); // kick
         musicStep += 1;
-      }, 460);
+      }, station.tempo);
     },
     stopMusic() {
       if (musicTimer) {
         window.clearInterval(musicTimer);
         musicTimer = null;
       }
+    },
+    // Radio: which station is on, what track is playing, and switching.
+    currentStation() {
+      const station = STATIONS[stationIndex];
+      const track = station.tracks[trackOrder[musicStep % 3]];
+      return { name: station.name, freq: station.freq, genre: station.genre, track, index: stationIndex };
+    },
+    setStation(index) {
+      stationIndex = ((index % STATIONS.length) + STATIONS.length) % STATIONS.length;
+      musicStep = 0;
+      trackOrder = [0, 1, 2].sort(() => Math.random() - 0.5);
+      if (musicTimer) {
+        window.clearInterval(musicTimer);
+        musicTimer = null;
+        this.startMusic();
+      }
+      return this.currentStation();
+    },
+    cycleStation() {
+      return this.setStation(stationIndex + 1);
     },
   };
 }

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AshboelPunks — Solmar Bay</title>
+<link rel="icon" href="data:,">
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1a33; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
@@ -17,20 +18,59 @@
   #health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #37c978, #7be495); transition: width .2s; }
   #health-fill.low { background: linear-gradient(90deg, #e5534b, #ff8a7a); }
   #health-text { font-weight: 700; }
-  #money { font-size: 26px; font-weight: 800; color: #7be495; margin-top: 4px; }
+  #money { font-size: 28px; font-weight: 800; color: #7be495; margin-top: 4px; }
   #district { font-size: 13px; opacity: .9; margin-top: 2px; }
   #clock { font-size: 13px; opacity: .9; }
+  #weapon { display: inline-block; font-size: 14px; font-weight: 700; margin-top: 6px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.25); padding: 3px 9px; border-radius: 6px; }
 
-  #wanted { position: absolute; top: 14px; right: 16px; font-size: 30px; letter-spacing: 4px; color: #ffd23b; }
+  /* Mission tracker panel (top-left, under the vitals). */
+  #mission-panel { position: absolute; top: 158px; left: 14px; width: 300px; background: rgba(8,10,18,.74); border: 1px solid rgba(255,210,59,.45); border-radius: 10px; padding: 10px 12px; }
+  #mission-head { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 2px; color: #ffd23b; font-weight: 800; }
+  #mission-title { font-size: 17px; font-weight: 800; margin-top: 4px; }
+  #mission-objective { font-size: 14px; margin-top: 4px; line-height: 1.4; }
+  #mission-next { font-size: 12px; opacity: .75; margin-top: 5px; }
+
+  /* Police dispatch list (left, under the mission panel). */
+  #dispatch { position: absolute; top: 300px; left: 14px; width: 300px; background: rgba(8,10,18,.74); border: 1px solid rgba(255,80,80,.45); border-radius: 10px; padding: 10px 12px; }
+  #dispatch-head { font-size: 11px; letter-spacing: 2px; color: #ff6b6b; font-weight: 800; margin-bottom: 4px; }
+  .dispatch-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 3px 0; border-top: 1px solid rgba(255,255,255,.08); }
+  .dispatch-row .dispatch-dist { opacity: .8; }
+  .dispatch-status { font-weight: 800; color: #ffb13b; }
+  .dispatch-status.ramming, .dispatch-status.roadblock { color: #ff4f4f; }
+  .dispatch-status.air { color: #4fd8ff; }
+
+  #wanted-wrap { position: absolute; top: 14px; right: 16px; text-align: right; }
+  #wanted-label { font-size: 11px; letter-spacing: 3px; font-weight: 800; opacity: .85; }
+  #wanted { font-size: 30px; letter-spacing: 4px; color: #ffd23b; }
   #wanted.hot { animation: pulse 0.7s infinite alternate; }
   @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
 
   #objective { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); max-width: 70%; text-align: center; font-size: 16px; font-weight: 600; background: rgba(0,0,0,.5); padding: 8px 16px; border-radius: 8px; }
-  #speed { position: absolute; right: 16px; bottom: 16px; font-size: 26px; font-weight: 800; }
+
+  /* Radio + car card, bottom-right above the speed. */
+  #radio { position: absolute; right: 16px; bottom: 72px; text-align: right; background: rgba(8,10,18,.74); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 8px 12px; }
+  #radio-station { font-size: 13px; font-weight: 800; color: #4fd8ff; letter-spacing: 1px; }
+  #radio-track { font-size: 12px; opacity: .85; }
+  #radio-car { font-size: 12px; opacity: .75; margin-top: 2px; }
+  #speed { position: absolute; right: 16px; bottom: 12px; font-size: 46px; font-weight: 900; line-height: 1; }
+  #speed small { font-size: 16px; font-weight: 700; opacity: .8; }
 
   #minimap { position: absolute; left: 14px; bottom: 14px; width: 190px; height: 190px; border: 2px solid rgba(255,255,255,.4); border-radius: 50%; background: #1d4e63; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+  #minimap-label { position: absolute; left: 14px; bottom: 212px; font-size: 12px; font-weight: 700; letter-spacing: 1px; background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 6px; }
 
-  #toast { position: absolute; bottom: 220px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.65); padding: 10px 18px; border-radius: 8px; font-size: 16px; }
+  /* Dialogue / subtitle bar with a character card. */
+  #dialogue { position: absolute; bottom: 232px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; align-items: center; background: rgba(8,10,18,.82); border: 1px solid rgba(255,255,255,.22); border-radius: 10px; padding: 10px 14px; max-width: 640px; text-align: left; }
+  #dialogue-avatar { width: 44px; height: 44px; border-radius: 8px; background: linear-gradient(135deg, #ff5e8a, #b46bff); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; flex-shrink: 0; text-shadow: none; }
+  #dialogue-speaker { font-size: 12px; font-weight: 800; color: #ffd23b; letter-spacing: 1px; }
+  #dialogue-text { font-size: 15px; line-height: 1.4; }
+
+  /* Big mission banner on mission start. */
+  #mission-banner { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); text-align: center; width: min(640px, 88vw); }
+  #mission-banner-index { font-size: 13px; letter-spacing: 4px; color: #ffd23b; font-weight: 800; }
+  #mission-banner-title { font-size: 44px; font-weight: 900; font-style: italic; color: #fff; text-shadow: 0 3px 0 #7a2e0e, 0 8px 24px rgba(0,0,0,.8); }
+  #mission-banner-text { font-size: 16px; background: rgba(0,0,0,.6); padding: 10px 16px; border-radius: 8px; margin-top: 8px; line-height: 1.5; }
+
+  #toast { position: absolute; bottom: 340px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.65); padding: 10px 18px; border-radius: 8px; font-size: 16px; }
   #briefing { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); width: min(560px, 86vw); background: rgba(10,14,24,.85); border: 1px solid #ffd23b; border-radius: 10px; padding: 16px 20px; }
   #briefing-title { font-size: 22px; font-weight: 800; color: #ffd23b; margin-bottom: 6px; }
   #briefing-text { font-size: 15px; line-height: 1.5; }
@@ -66,12 +106,41 @@
     <div id="money">$250</div>
     <div id="district">Solmar Bay</div>
     <div id="clock">09:30</div>
+    <div id="weapon" class="hidden">PISTOL · 24</div>
   </div>
-  <div id="wanted">☆☆☆☆☆</div>
+  <div id="mission-panel" class="hidden">
+    <div id="mission-head"><span id="mission-index">MISI 1/6</span><span id="mission-timer"></span></div>
+    <div id="mission-title"></div>
+    <div id="mission-objective"></div>
+    <div id="mission-next"></div>
+  </div>
+  <div id="dispatch" class="hidden">
+    <div id="dispatch-head">SBPD RESPONSE</div>
+    <div id="dispatch-rows"></div>
+  </div>
+  <div id="wanted-wrap">
+    <div id="wanted-label">WANTED</div>
+    <div id="wanted">☆☆☆☆☆</div>
+  </div>
   <div id="objective"></div>
   <canvas id="minimap" width="190" height="190"></canvas>
+  <div id="minimap-label">Solmar Bay</div>
+  <div id="radio">
+    <div id="radio-station">SOLMAR FM 101.9</div>
+    <div id="radio-track">Ombak Senja — Lumen Kids</div>
+    <div id="radio-car"></div>
+  </div>
   <div id="speed"></div>
+  <div id="dialogue" class="hidden">
+    <div id="dialogue-avatar">R</div>
+    <div><div id="dialogue-speaker">Rico</div><div id="dialogue-text"></div></div>
+  </div>
   <div id="toast" class="hidden"></div>
+  <div id="mission-banner" class="hidden">
+    <div id="mission-banner-index"></div>
+    <div id="mission-banner-title"></div>
+    <div id="mission-banner-text"></div>
+  </div>
   <div id="briefing" class="hidden">
     <div id="briefing-title"></div>
     <div id="briefing-text"></div>
@@ -84,12 +153,14 @@
   <h1 class="game-title">ASHBOELPUNKS</h1>
   <div class="game-subtitle">Selamat datang di Solmar Bay</div>
   <p class="game-tagline">Dani Reyes, sopir kurir yang terseret ke dunia kriminal kota pantai ini.
-  Curi mobil, kabur dari polisi, selesaikan 6 misi — dan kuasai jalanan.</p>
+  Curi mobil, kabur dari polisi dan helikopter, dengerin radio Solmar FM,
+  selesaikan 6 misi — dan kuasai jalanan saat matahari terbenam.</p>
   <button class="big-btn" onclick="document.getElementById('game').dispatchEvent(new PointerEvent('pointerdown', {button: 0}))">▶ MULAI MAIN</button>
   <div class="controls">
     WASD — jalan / nyetir &nbsp;·&nbsp; Shift — lari &nbsp;·&nbsp; Spasi — lompat<br>
     E — masuk / keluar mobil &nbsp;·&nbsp; M — mulai misi &nbsp;·&nbsp; Q — ganti senjata<br>
-    F / klik kanan — pukul &nbsp;·&nbsp; Klik kiri — tembak &nbsp;·&nbsp; P — jeda &nbsp;·&nbsp; N — suara
+    F / klik kanan — pukul &nbsp;·&nbsp; Klik kiri — tembak &nbsp;·&nbsp; R — ganti radio &nbsp;·&nbsp; H — klakson<br>
+    P — jeda &nbsp;·&nbsp; N — suara &nbsp;·&nbsp; Drag mouse — putar kamera
   </div>
 </div>
 

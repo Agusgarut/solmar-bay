@@ -11,6 +11,8 @@ export function defaultSave() {
     missionsDone: 0,
     carsStolen: 0,
     bestWanted: 0,
+    bestSpeed: 0, // fastest km/h ever driven, shown on the title screen
+    radioStation: 0, // index into the radio stations in audio.js
     muted: false,
   };
 }
@@ -32,4 +34,14 @@ export function writeSave(data) {
   } catch {
     // Storage unavailable: play on without saving.
   }
+}
+
+// Wipe the save (used from the title screen's reset, and by tests).
+export function clearSave() {
+  try {
+    window.localStorage.removeItem(SAVE_KEY);
+  } catch {
+    // Nothing to wipe.
+  }
+  return defaultSave();
 }

@@ -37,8 +37,13 @@ export const START_MONEY = 250;
 export const DAY_LENGTH_SECONDS = 360;
 
 // Camera.
-export const CAMERA_DISTANCE = 11;
-export const CAMERA_HEIGHT = 4.6;
+export const CAMERA_DISTANCE = 8.0;
+export const CAMERA_HEIGHT = 3.4;
+
+// Golden hour: the game opens at sunset, like the entries on the feed.
+export const GOLDEN_HOUR = 17.4;
+export const HELI_MIN_WANTED = 3;
+export const SKID_MIN_SPEED = 15;
 
 // District names, west to east, south to north, for flavour text.
 export const DISTRICTS = [
@@ -61,7 +66,10 @@ export const PALETTE = {
   skyDay: 0x87bfe8,
   skySunset: 0xff9a5c,
   skyNight: 0x0e1a33,
+  skyGolden: 0xffb066,
   fogDay: 0xa8c8e0,
+  fogSunset: 0xffc49a,
+  sunDisc: 0xffd27a,
   water: 0x2e7f9e,
   sand: 0xe8d29a,
   grass: 0x5d8a4a,
@@ -69,6 +77,28 @@ export const PALETTE = {
   sidewalk: 0x9a9a92,
   buildingGlass: 0x9fc4d8,
 };
+
+// Street names for the HUD district label: one per road line.
+export const ROAD_NAMES = [
+  'Jl. Kota Tua', 'Jl. Merdeka', 'Jl. Pelabuhan', 'Jl. Sudirman',
+  'Jl. Marina', 'Jl. Pesisir', 'Jl. Pantai', 'Jl. Ocean',
+];
+
+export function streetAt(x, z) {
+  // The nearest road line gives the street; the axis gives the suffix.
+  let best = ROAD_POSITIONS[0];
+  let bestAxis = 'x';
+  let bestD = Infinity;
+  for (let i = 0; i < ROAD_POSITIONS.length; i += 1) {
+    const p = ROAD_POSITIONS[i];
+    const dx = Math.abs(x - p);
+    const dz = Math.abs(z - p);
+    if (dx < bestD) { bestD = dx; best = p; bestAxis = 'x'; }
+    if (dz < bestD) { bestD = dz; best = p; bestAxis = 'z'; }
+  }
+  const name = ROAD_NAMES[ROAD_POSITIONS.indexOf(best)] || 'Jl. Solmar';
+  return bestAxis === 'x' ? `${name} Utara` : `${name} Timur`;
+}
 
 export function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;

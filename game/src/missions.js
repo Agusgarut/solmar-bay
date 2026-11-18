@@ -22,15 +22,19 @@ export const MISSIONS = [
   {
     title: 'Kurir Pagi',
     briefing: 'Dani, bawa paket ini dari Marina ke Downtown. Jangan telat, jangan ditabrak.',
+    intro: { speaker: 'Rico', line: 'Paketnya di Marina, Dani. Bawa ke Downtown, jangan telat.' },
+    doneLine: { speaker: 'Rico', line: 'Bagus. Klien senang, duit jalan terus.' },
     reward: 400,
     objectives: [
       { type: 'goto', spot: 'marina', text: 'Ambil paket di Marina' },
-      { type: 'goto', spot: 'downtown', text: 'Antar paket ke Downtown' },
+      { type: 'goto', spot: 'downtown', text: 'Antar paket ke Downtown', say: { speaker: 'Dani', line: 'Paket di tangan. Sekarang ke Downtown.' } },
     ],
   },
   {
     title: 'Tagihan Lama',
     briefing: 'Si Beni ngutang dan pura-pura lupa. Pergi ke Old Town, tagih dengan tanganmu.',
+    intro: { speaker: 'Rico', line: 'Beni ngutang dan pura-pura lupa. Tagih dia, pakai tangan kalau perlu.' },
+    doneLine: { speaker: 'Beni', line: 'Oke oke! Duitnya ada, jangan pukul lagi!' },
     reward: 650,
     objectives: [
       { type: 'goto', spot: 'oldTown', text: 'Temui Beni di Old Town' },
@@ -40,6 +44,8 @@ export const MISSIONS = [
   {
     title: 'Balapan Liar',
     briefing: 'Balapan jalanan di Beachfront. Lewati semua checkpoint sebelum waktu habis.',
+    intro: { speaker: 'Zara', line: 'Balapan liar di Beachfront. Jangan kalah sama mereka, Dani.' },
+    doneLine: { speaker: 'Zara', line: 'Kamu yang tercepat di Solmar Bay. Gila!' },
     reward: 900,
     objectives: [
       { type: 'goto', spot: 'beach', text: 'Ke garis start di Beachfront' },
@@ -49,16 +55,20 @@ export const MISSIONS = [
   {
     title: 'Barang Panas',
     briefing: 'Ada coupe merah parkir di Industrial. Bawa ke garasi Rico — dan jangan sampai polisi lihat.',
+    intro: { speaker: 'Rico', line: 'Coupe merah di Industrial. Bawa ke garasiku, jangan sampai polisi lihat.' },
+    doneLine: { speaker: 'Rico', line: 'Mobilnya mulus. Kamu memang bisa diandalkan.' },
     reward: 1200,
     objectives: [
       { type: 'goto', spot: 'industrial', text: 'Temukan coupe merah' },
       { type: 'steal', spot: 'industrial', text: 'Curi coupe-nya (E di dekat mobil)' },
-      { type: 'deliver', spot: 'garage', text: 'Antar ke garasi Rico' },
+      { type: 'deliver', spot: 'garage', text: 'Antar ke garasi Rico', say: { speaker: 'Dani', line: 'Coupe didapat. Sekarang kabur ke garasi Rico.' } },
     ],
   },
   {
     title: 'Gudang Pelabuhan',
     briefing: 'Geng Pelabuhan nahan barang kita. Bersihkan gudang itu — pistolmu sudah terisi.',
+    intro: { speaker: 'Rico', line: 'Geng Pelabuhan nahan barang kita. Bersihkan gudang itu.' },
+    doneLine: { speaker: 'Dani', line: 'Gudang bersih. Barang kita kembali.' },
     reward: 1800,
     objectives: [
       { type: 'goto', spot: 'port', text: 'Ke gudang pelabuhan' },
@@ -68,6 +78,8 @@ export const MISSIONS = [
   {
     title: 'Pelarian Terakhir',
     briefing: 'Polisi sudah di mana-mana. Kabur dari kejaran mereka dan sampai ke safehouse.',
+    intro: { speaker: 'Zara', line: 'Polisi di mana-mana! Bertahan 60 detik, lalu ke safehouse!' },
+    doneLine: { speaker: 'Zara', line: 'Kamu lolos. Solmar Bay sekarang milik kita.' },
     reward: 3000,
     objectives: [
       { type: 'survive', seconds: 60, text: 'Bertahan dari kejaran polisi (60 detik)' },
@@ -105,7 +117,9 @@ export function createMissions(scene) {
     surviveTimer = 0;
     objectiveTimer = 0;
     ctx.save.missionIndex = index;
-    ctx.hud.showBriefing(mission.title, mission.briefing);
+    // The big banner carries the briefing — no second box on top of it.
+    ctx.hud.showMissionBanner(`MISI ${index + 1} — ${mission.title}`, mission.briefing);
+    if (mission.intro) ctx.hud.showDialogue(mission.intro.speaker, mission.intro.line, 5);
     ctx.audio.pickup();
     // Mission 4 needs its special car parked at the spot.
     if (index === 3) ctx.spawnMissionCar();
@@ -129,8 +143,10 @@ export function createMissions(scene) {
   }
 
   function advance(ctx) {
+    const next = current.mission.objectives[current.objectiveIndex + 1];
     current.objectiveIndex += 1;
     ctx.audio.pickup();
+    if (next && next.say) ctx.hud.showDialogue(next.say.speaker, next.say.line, 5);
     if (current.objectiveIndex >= current.mission.objectives.length) {
       complete(ctx);
     }
@@ -142,6 +158,7 @@ export function createMissions(scene) {
     ctx.save.missionsDone += 1;
     ctx.save.missionIndex = Math.min(current.index + 1, MISSIONS.length - 1);
     ctx.hud.showToast(`Misi selesai: ${mission.title} — +$${mission.reward}`);
+    if (mission.doneLine) ctx.hud.showDialogue(mission.doneLine.speaker, mission.doneLine.line, 5);
     ctx.audio.missionDone();
     ctx.saveData();
     current = null;
@@ -247,6 +264,28 @@ export function createMissions(scene) {
       if (objective.type === 'kill') text += ` (${killCount}/${objective.count})`;
       if (objective.type === 'survive') text += ` (${Math.ceil(objective.seconds - surviveTimer)} dtk)`;
       return `${current.mission.title}: ${text}`;
+    },
+    // Everything the mission panel in the HUD needs, in one object.
+    missionInfo() {
+      const objective = currentObjective();
+      if (!current || !objective) return null;
+      const next = current.mission.objectives[current.objectiveIndex + 1];
+      let timer = '';
+      if (objective.type === 'race') timer = `${Math.max(0, Math.ceil(objective.time - objectiveTimer))} dtk`;
+      if (objective.type === 'survive') timer = `${Math.ceil(objective.seconds - surviveTimer)} dtk`;
+      let progress = '';
+      if (objective.type === 'race') progress = `${raceIndex}/${objective.spots.length}`;
+      if (objective.type === 'kill') progress = `${killCount}/${objective.count}`;
+      return {
+        index: current.index + 1,
+        total: MISSIONS.length,
+        title: current.mission.title,
+        objective: this.objectiveText(),
+        next: next ? `NEXT: ${next.text}` : 'Terakhir — selesaikan!',
+        timer,
+        progress,
+        reward: current.mission.reward,
+      };
     },
   };
 }

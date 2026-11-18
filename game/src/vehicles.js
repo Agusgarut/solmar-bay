@@ -8,15 +8,33 @@ import { CAR_ACCEL, CAR_BRAKE, CAR_REVERSE_ACCEL, CAR_MAX_SPEED, CAR_MAX_REVERSE
 import { pick } from './random.js';
 
 export const CAR_TYPES = {
-  sedan: { length: 4.4, width: 1.9, accel: 1.0, top: 1.0, color: 0xc23b2e },
-  coupe: { length: 4.1, width: 1.85, accel: 1.15, top: 1.12, color: 0x2e6fc2 },
-  taxi: { length: 4.4, width: 1.9, accel: 0.95, top: 0.95, color: 0xe8b93b },
-  van: { length: 5.2, width: 2.1, accel: 0.8, top: 0.85, color: 0x7a7f85 },
-  sport: { length: 4.2, width: 1.95, accel: 1.35, top: 1.25, color: 0xd81e5b },
-  police: { length: 4.5, width: 1.95, accel: 1.2, top: 1.15, color: 0x1a1d22 },
+  sedan: { length: 4.4, width: 1.9, accel: 1.0, top: 1.0, color: 0xc23b2e, label: 'Solmar Sedan' },
+  coupe: { length: 4.1, width: 1.85, accel: 1.15, top: 1.12, color: 0x2e6fc2, label: 'Vespera GT' },
+  taxi: { length: 4.4, width: 1.9, accel: 0.95, top: 0.95, color: 0xe8b93b, label: 'Taksi Kuning' },
+  van: { length: 5.2, width: 2.1, accel: 0.8, top: 0.85, color: 0x7a7f85, label: 'Van Kargo' },
+  sport: { length: 4.2, width: 1.95, accel: 1.35, top: 1.25, color: 0xd81e5b, label: 'Vespera GT' },
+  muscle: { length: 4.6, width: 2.0, accel: 1.25, top: 1.18, color: 0x3a3a3a, label: 'Banteng GT' },
+  pickup: { length: 5.0, width: 2.0, accel: 0.9, top: 0.95, color: 0x7a4a2a, label: 'Pikap Pantai' },
+  police: { length: 4.5, width: 1.95, accel: 1.2, top: 1.15, color: 0x1a1d22, label: 'SBPD Interceptor' },
 };
 
-const PAINT_COLORS = [0xc23b2e, 0x2e6fc2, 0xe8b93b, 0x3a9e5f, 0x8a4fc2, 0xd8d8d8, 0x22252a, 0xd81e5b];
+const PAINT_COLORS = [0xc23b2e, 0x2e6fc2, 0xe8b93b, 0x3a9e5f, 0x8a4fc2, 0xd8d8d8, 0x22252a, 0xd81e5b, 0x3a3a3a, 0x7a4a2a];
+
+function makeDoorTextTexture(text) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 48;
+  const g = canvas.getContext('2d');
+  g.clearRect(0, 0, 128, 48);
+  g.font = '900 30px system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = '#101216';
+  g.fillText(text, 64, 26);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
 
 export function createCarModel(typeName, color, rng) {
   const type = CAR_TYPES[typeName] || CAR_TYPES.sedan;
@@ -31,12 +49,55 @@ export function createCarModel(typeName, color, rng) {
   body.castShadow = true;
   group.add(body);
 
+  // Two-tone roof panel over the cabin, plus a dark grille and bumpers so
+  // the car reads as a car at a glance, not a painted box.
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.84, 0.1, type.length * 0.46), bodyMat);
+  roof.position.set(0, 1.42, -type.length * 0.05);
+  group.add(roof);
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.5, 0.18, 0.06), darkMat);
+  grille.position.set(0, 0.52, type.length / 2 + 0.02);
+  group.add(grille);
+  for (const bz of [type.length / 2 - 0.05, -type.length / 2 + 0.05]) {
+    const bumper = new THREE.Mesh(new THREE.BoxGeometry(type.width + 0.06, 0.16, 0.22), darkMat);
+    bumper.position.set(0, 0.32, bz);
+    group.add(bumper);
+  }
+  // Side mirrors.
+  for (const side of [-1, 1]) {
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.2), darkMat);
+    mirror.position.set(side * (type.width / 2 + 0.05), 1.05, type.length * 0.12);
+    group.add(mirror);
+  }
+  // Rear spoiler on the fast ones, hood scoop on the muscle car.
+  if (typeName === 'sport' || typeName === 'coupe' || typeName === 'muscle') {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.9, 0.07, 0.5), darkMat);
+    wing.position.set(0, 1.05, -type.length / 2 + 0.15);
+    group.add(wing);
+    for (const side of [-1, 1]) {
+      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.08), darkMat);
+      strut.position.set(side * (type.width / 2 - 0.35), 0.92, -type.length / 2 + 0.15);
+      group.add(strut);
+    }
+  }
+  if (typeName === 'muscle') {
+    const scoop = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.16, 0.9), darkMat);
+    scoop.position.set(0, 0.92, type.length * 0.16);
+    group.add(scoop);
+  }
+  // Pickup bed instead of a closed cabin.
+  if (typeName === 'pickup') {
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.86, 0.3, type.length * 0.32), darkMat);
+    bed.position.set(0, 0.95, -type.length * 0.28);
+    group.add(bed);
+  }
+
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.82, 0.55, type.length * 0.48), glassMat);
   cabin.position.set(0, 1.1, -type.length * 0.05);
   cabin.castShadow = true;
   group.add(cabin);
 
-  // Headlights and taillights.
+  // Headlights and taillights. The materials are kept on userData so the
+  // game can glow them at sunset and flash the brake lights.
   const lightGeo = new THREE.BoxGeometry(0.34, 0.16, 0.08);
   const headMat = new THREE.MeshLambertMaterial({ color: 0xfff6c8, emissive: 0xffe9a0, emissiveIntensity: 0.7 });
   const tailMat = new THREE.MeshLambertMaterial({ color: 0xcc2222, emissive: 0xaa1111, emissiveIntensity: 0.7 });
@@ -49,32 +110,67 @@ export function createCarModel(typeName, color, rng) {
     group.add(tail);
   }
 
-  // Police light bar.
+  // Police light bar, two-tone doors and push bar.
+  let lightBar = null;
   if (typeName === 'police') {
+    // White door panels over the black body, with SBPD on the side.
+    for (const side of [-1, 1]) {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, type.length * 0.42), new THREE.MeshLambertMaterial({ color: 0xe8e8e8 }));
+      door.position.set(side * (type.width / 2 + 0.01), 0.6, 0);
+      group.add(door);
+      const decal = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.5, 0.56),
+        new THREE.MeshBasicMaterial({ map: makeDoorTextTexture('SBPD'), transparent: true }),
+      );
+      decal.position.set(side * (type.width / 2 + 0.04), 0.62, 0);
+      decal.rotation.y = side * Math.PI / 2;
+      group.add(decal);
+    }
+    const pushBar = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.7, 0.3, 0.14), darkMat);
+    pushBar.position.set(0, 0.5, type.length / 2 + 0.12);
+    group.add(pushBar);
     const bar = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.18, 0.4), darkMat);
     bar.position.set(0, 1.5, -type.length * 0.05);
     group.add(bar);
-    const red = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.42), new THREE.MeshLambertMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 1 }));
+    const redMat = new THREE.MeshLambertMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 1 });
+    const blueMat = new THREE.MeshLambertMaterial({ color: 0x2244ff, emissive: 0x0022ff, emissiveIntensity: 1 });
+    const red = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.42), redMat);
     red.position.set(-0.28, 1.5, -type.length * 0.05);
     group.add(red);
-    const blue = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.42), new THREE.MeshLambertMaterial({ color: 0x2244ff, emissive: 0x0022ff, emissiveIntensity: 1 }));
+    const blue = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.42), blueMat);
     blue.position.set(0.28, 1.5, -type.length * 0.05);
     group.add(blue);
+    lightBar = { redMat, blueMat };
   }
 
-  // Wheels.
+  // Wheels with light hubcaps.
   const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.28, 12);
   wheelGeo.rotateZ(Math.PI / 2);
+  const hubGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.3, 10);
+  hubGeo.rotateZ(Math.PI / 2);
+  const hubMat = new THREE.MeshLambertMaterial({ color: 0xb8bcc2 });
   const wheels = [];
   for (const [wx, wz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
     const wheel = new THREE.Mesh(wheelGeo, darkMat);
     wheel.position.set(wx * (type.width / 2 - 0.1), 0.36, wz * (type.length / 2 - 0.75));
     wheel.castShadow = true;
     group.add(wheel);
+    const hub = new THREE.Mesh(hubGeo, hubMat);
+    hub.position.copy(wheel.position);
+    group.add(hub);
     wheels.push(wheel);
   }
   group.userData.wheels = wheels;
   group.userData.type = type;
+  group.userData.headMat = headMat;
+  group.userData.tailMat = tailMat;
+  group.userData.lightBar = lightBar;
+  group.userData.setLights = (level) => {
+    headMat.emissiveIntensity = 0.7 + level * 1.6;
+  };
+  group.userData.setBraking = (on) => {
+    tailMat.emissiveIntensity = on ? 2.6 : 0.7;
+  };
   return group;
 }
 
@@ -106,6 +202,16 @@ export class Car {
     this.model.rotation.y = this.heading;
     const spin = this.speed * 0.016 * 2.4;
     for (const wheel of this.model.userData.wheels) wheel.rotation.x += spin;
+  }
+
+  // Headlight glow follows the time of day (traffic calls this).
+  setLights(level) {
+    if (this.model.userData.setLights) this.model.userData.setLights(level);
+  }
+
+  // Brake lights flare while the brakes are on.
+  setBraking(on) {
+    if (this.model.userData.setBraking) this.model.userData.setBraking(on);
   }
 
   // Drive with arcade controls: throttle -1..1, steer -1..1, handbrake bool.

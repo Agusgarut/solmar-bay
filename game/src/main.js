@@ -8,9 +8,9 @@
 // of seconds, paints it and sets window.__shotReady for a screenshot.
 
 import * as THREE from 'three';
-import { WORLD_HALF, DAY_LENGTH_SECONDS, START_MONEY, MAX_WANTED, clamp, districtAt, distance2D } from './config.js';
+import { WORLD_HALF, DAY_LENGTH_SECONDS, START_MONEY, MAX_WANTED, GOLDEN_HOUR, clamp, districtAt, streetAt, distance2D } from './config.js';
 import { createRandom } from './random.js';
-import { createInput, ACTION_CONFIRM, ACTION_PAUSE, ACTION_ENTER_CAR, ACTION_PUNCH, ACTION_SHOOT, ACTION_WEAPON, ACTION_JUMP } from './input.js';
+import { createInput, ACTION_CONFIRM, ACTION_PAUSE, ACTION_ENTER_CAR, ACTION_PUNCH, ACTION_SHOOT, ACTION_WEAPON, ACTION_JUMP, ACTION_RADIO, ACTION_HORN } from './input.js';
 import { createAudio } from './audio.js';
 import { loadSave, writeSave } from './save.js';
 import { buildCity } from './city.js';
@@ -41,6 +41,10 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Filmic tone mapping: golden-hour sunsets get warm highlights instead of
+// blown-out white, and neon reads at dusk.
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.28;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87bfe8);
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1500);
@@ -56,6 +60,7 @@ window.addEventListener('resize', () => {
 const save = loadSave();
 const audio = createAudio();
 audio.setMuted(save.muted);
+audio.setStation(save.radioStation || 0);
 const city = buildCity(scene, rng);
 const player = createPlayer(scene);
 const traffic = createTraffic(scene, rng, city);
@@ -71,8 +76,8 @@ const input = createInput(canvas);
 const ctx = {
   scene, camera, renderer, rng, input, audio, save, city, player, traffic,
   peds, police, combat, missions, effects, hud, minimap,
-  timeOfDay: 9.5,
-  timeBase: 9.5, // timeOfDay advances from here; staging can set the hour
+  timeOfDay: GOLDEN_HOUR,
+  timeBase: GOLDEN_HOUR, // timeOfDay advances from here; staging can set the hour
   state: 'title',
   setState(next) {
     ctx.state = next;
@@ -183,7 +188,7 @@ function respawn(reason) {
   player.health = 100;
   player.ammo = 24;
   player.place(0, 45, Math.PI);
-  ctx.timeOfDay = 9.5;
+  ctx.timeOfDay = GOLDEN_HOUR;
   hud.showOver(reason, `Kamu kehilangan $${lost}. Dani kembali ke jalanan Downtown.`);
   audio.busted();
 }
@@ -208,6 +213,7 @@ function updateGame(dt, scripted) {
   ctx.timeOfDay = (ctx.timeBase + (elapsed / DAY_LENGTH_SECONDS) * 24) % 24;
   const actions = scripted ? scripted.actions : input.takeActions();
   const drag = scripted ? 0 : input.takeDrag();
+  const dragY = scripted ? 0 : input.takeDragY();
   const move = scripted ? scripted.move : input.move();
   if (scripted && scripted.jump) move.jump = true;
   if (!scripted && (actions & ACTION_JUMP)) move.jump = true;
@@ -237,6 +243,13 @@ function updateGame(dt, scripted) {
     }
     player.syncModel();
   }
+  if (actions & ACTION_RADIO) {
+    const station = audio.cycleStation();
+    save.radioStation = station.index;
+    ctx.saveData();
+    hud.showToast(`${station.name} ${station.freq} — ${station.track}`);
+  }
+  if (actions & ACTION_HORN && player.inCar) audio.horn();
   if (actions & ACTION_PUNCH && !player.inCar) {
     if (combat.punch(ctx)) {
       audio.punch();
@@ -260,6 +273,15 @@ function updateGame(dt, scripted) {
     const steer = scripted ? scripted.steer : -move.strafe;
     const handbrake = !scripted && move.run;
     car.drive(dt, throttle, steer, handbrake);
+    // Handbrake skid: tyre smoke, screech and brake lights.
+    const skidding = handbrake && Math.abs(car.speed) > 15;
+    car.setBraking(handbrake || throttle < 0);
+    if (skidding) {
+      const bx = car.x - Math.sin(car.heading) * 1.6;
+      const bz = car.z - Math.cos(car.heading) * 1.6;
+      effects.skidSmoke(bx, 0.3, bz);
+      if (Math.random() < dt * 6) audio.skid();
+    }
     const fixed = city.resolveCircle(car.x, car.z, 2.2);
     if (Math.abs(fixed.x - car.x) + Math.abs(fixed.z - car.z) > 0.05) {
       if (Math.abs(car.speed) > 12) {
@@ -360,11 +382,18 @@ function updateGame(dt, scripted) {
     speed: player.inCar ? player.inCar.speed : 0,
     inCar: !!player.inCar,
     objective: missions.objectiveText(),
+    mission: missions.missionInfo(),
+    dispatch: police.dispatchList(player.x, player.z),
+    vehicle: player.inCar ? { name: player.inCar.type.label, condition: player.inCar.health } : null,
+    radio: audio.currentStation(),
+    weapon: { name: player.weapon, ammo: player.ammo },
     district: districtAt(player.x, player.z),
+    street: streetAt(player.x, player.z),
     timeOfDay: ctx.timeOfDay,
     showCrosshair: !player.inCar && player.weapon === 'pistol',
   });
   save.bestWanted = Math.max(save.bestWanted, police.wanted);
+  if (player.inCar) save.bestSpeed = Math.max(save.bestSpeed || 0, Math.round(Math.abs(player.inCar.speed) * 3.6));
   minimapTimer -= dt;
   if (minimapTimer <= 0) {
     minimapTimer = 0.15;
@@ -382,9 +411,9 @@ function updateGame(dt, scripted) {
   // speed so fast driving feels fast.
   const focus = player.inCar ? player.inCar : player;
   const focusY = player.inCar ? 1 : player.y;
-  updateCamera(camera, focus.x, focusY, focus.z, focus.heading, player, dt, drag);
+  updateCamera(camera, focus.x, focusY, focus.z, focus.heading, player, dt, drag, dragY);
   const speed01 = player.inCar ? Math.min(1, Math.abs(player.inCar.speed) / 45) : 0;
-  const targetFov = 62 + speed01 * 9;
+  const targetFov = 62 + speed01 * 12;
   if (Math.abs(camera.fov - targetFov) > 0.2) {
     camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3);
     camera.updateProjectionMatrix();
@@ -412,7 +441,7 @@ function frame(now) {
     const t = now * 0.00004;
     camera.position.set(Math.sin(t) * 220, 62, Math.cos(t) * 220);
     camera.lookAt(0, 18, 0);
-    city.update(dt, 17.3, { x: 0, z: 0 });
+    city.update(dt, 17.5, { x: 0, z: 0 });
     traffic.update(dt, traffic.all());
     peds.update(dt);
     renderer.render(scene, camera);
@@ -485,8 +514,14 @@ function runShot(name) {
           car.heading + Math.PI,
         );
       });
+      // The helicopter hangs ahead in the sky, in the frame: straight down
+      // the street corridor so the towers on both sides can't hide it.
+      if (name === 'chase') ctx.police.placeHeli(car.heading, car.x, car.z, 35, 60);
     }
   }
+  // Settle the sun, sky, fog and lamps for the staged hour: the title shot
+  // never runs the loop, so without this it would render noon defaults.
+  ctx.city.update(0.016, ctx.timeOfDay, ctx.player.inCar ? ctx.player.inCar : ctx.player);
   renderer.render(scene, camera);
   renderer.render(scene, camera);
   window.__shotReady = true;

@@ -5,9 +5,14 @@
 import * as THREE from 'three';
 import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, clamp, distance2D } from './config.js';
 import { createCarModel, Car } from './vehicles.js';
-import { pick, range } from './random.js';
+import { pick, range, weighted } from './random.js';
 
-const TRAFFIC_TYPES = ['sedan', 'coupe', 'taxi', 'van', 'sport'];
+// Traffic mix by weight: sedans and taxis dominate, sports are rare.
+const TRAFFIC_MIX = [
+  ['sedan', 3], ['coupe', 2], ['taxi', 2], ['van', 1],
+  ['sport', 1], ['muscle', 1], ['pickup', 1],
+];
+const TRAFFIC_TYPES = TRAFFIC_MIX.map(([type]) => type);
 const TRAFFIC_SPEED = 13;
 
 export function createTraffic(scene, rng, city) {
@@ -15,7 +20,7 @@ export function createTraffic(scene, rng, city) {
   const parked = [];
 
   function spawnTrafficCar() {
-    const type = pick(rng, TRAFFIC_TYPES);
+    const type = weighted(rng, TRAFFIC_MIX);
     const model = createCarModel(type, undefined, rng);
     scene.add(model);
     const car = new Car(model, type);
@@ -34,7 +39,7 @@ export function createTraffic(scene, rng, city) {
   }
 
   function spawnParkedCar() {
-    const type = pick(rng, TRAFFIC_TYPES);
+    const type = weighted(rng, TRAFFIC_MIX);
     const model = createCarModel(type, undefined, rng);
     scene.add(model);
     const car = new Car(model, type);
@@ -62,6 +67,10 @@ export function createTraffic(scene, rng, city) {
   }
 
   function update(dt, allCars) {
+    // Headlights glow as the light fades: dusk and night driving reads.
+    const night = city.nightFactor ? city.nightFactor() : 0;
+    for (const car of cars) car.setLights(night);
+    for (const car of parked) car.setLights(night);
     for (const car of cars) {
       const movingAlongX = Math.abs(Math.sin(car.heading)) > 0.9;
       const axis = movingAlongX ? 'x' : 'z';

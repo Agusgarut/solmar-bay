@@ -17,16 +17,23 @@ police, and work through 6 story missions.
 
 - **Open world**: a full city grid — Downtown, Old Town, Marina, Industrial,
   Beachfront — with a beach, palms, traffic and pedestrians.
+- **Golden hour**: the game opens at sunset — warm light, long shadows, a
+  low sun over the sea, neon signs and lit windows as dusk falls.
 - **Driving**: arcade handling, carjacking (parked and occupied cars),
-  several car types, police chases.
+  several car types, police chases with a helicopter at 3+ stars and
+  roadblocks at 4 stars.
 - **Wanted system**: 0–5 stars. Police cars ram you, foot officers chase
   you down. Stay hidden and the heat cools off.
-- **Missions**: 6 jobs with briefings, beacons, objectives and cash rewards —
-  courier runs, a debt collection, a street race, a hot car, a warehouse
-  shootout and one last escape.
+- **Missions**: 6 jobs with briefings, a big mission banner, character
+  dialogue, beacons, objectives and cash rewards — courier runs, a debt
+  collection, a street race, a hot car, a warehouse shootout and one last
+  escape.
 - **Combat**: fists and a pistol, armed enemies, health and ammo.
-- **HUD + minimap**: health, money, wanted stars, speed, clock, district,
-  mission objective and a live minimap.
+- **HUD + minimap**: health, money, wanted stars, a mission tracker panel,
+  a live police dispatch list, radio station + car card, big speed readout,
+  weapon + ammo, district and street, and a live minimap with landmarks.
+- **Radio**: three procedural stations (SOLMAR FM 101.9, WAVE 88.1, BAY
+  ROCK 94.5) — press R to change station.
 - **Polish**: day/night cycle with sunsets, shadows, procedural WebAudio
   (engine, sirens, gunshots, music loop), save/load, pause and game over.
 
@@ -46,6 +53,8 @@ build step — every file the game loads lives under `game/`.
 | Q | Switch weapon (fists / pistol) |
 | F / right click | Punch |
 | Left click | Shoot |
+| R | Change radio station |
+| H | Honk (in a car) |
 | P | Pause |
 | N | Mute |
 

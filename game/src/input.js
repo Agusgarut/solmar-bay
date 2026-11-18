@@ -10,6 +10,8 @@ export const ACTION_PUNCH = 8;
 export const ACTION_SHOOT = 16;
 export const ACTION_WEAPON = 32;
 export const ACTION_JUMP = 64;
+export const ACTION_RADIO = 128;
+export const ACTION_HORN = 256;
 
 const FORWARD = new Set(['KeyW', 'ArrowUp']);
 const BACK = new Set(['KeyS', 'ArrowDown']);
@@ -20,10 +22,13 @@ const RUN = new Set(['ShiftLeft', 'ShiftRight']);
 export function createInput(canvas) {
   const keys = new Set();
   let actions = 0;
-  // Mouse: drag orbits the camera, click shoots / punches.
+  // Mouse: drag orbits the camera, click shoots / punches. Vertical drag
+  // tilts the camera pitch (see player.updateCamera).
   let dragX = 0;
+  let dragY = 0;
   let dragging = false;
   let lastX = 0;
+  let lastY = 0;
 
   window.addEventListener('keydown', (event) => {
     if (event.repeat) return;
@@ -33,6 +38,8 @@ export function createInput(canvas) {
     else if (event.code === 'KeyF') actions |= ACTION_PUNCH;
     else if (event.code === 'KeyQ') actions |= ACTION_WEAPON;
     else if (event.code === 'Enter') actions |= ACTION_CONFIRM;
+    else if (event.code === 'KeyR') actions |= ACTION_RADIO;
+    else if (event.code === 'KeyH') actions |= ACTION_HORN;
     else if (event.code === 'KeyP' || event.code === 'Escape') actions |= ACTION_PAUSE;
   });
   window.addEventListener('keyup', (event) => {
@@ -49,13 +56,16 @@ export function createInput(canvas) {
   window.addEventListener('pointerdown', (event) => {
     dragging = true;
     lastX = event.clientX;
+    lastY = event.clientY;
     if (event.button === 0) actions |= ACTION_SHOOT;
     if (event.button === 2) actions |= ACTION_PUNCH;
   });
   window.addEventListener('pointermove', (event) => {
     if (!dragging) return;
     dragX += event.clientX - lastX;
+    dragY += event.clientY - lastY;
     lastX = event.clientX;
+    lastY = event.clientY;
   });
   window.addEventListener('pointerup', () => {
     dragging = false;
@@ -78,6 +88,12 @@ export function createInput(canvas) {
     takeDrag() {
       const d = dragX;
       dragX = 0;
+      return d;
+    },
+    /** Vertical mouse drag since the last call, for the camera pitch. */
+    takeDragY() {
+      const d = dragY;
+      dragY = 0;
       return d;
     },
     /** The one-shot presses since the last call, as ACTION_* flags. */

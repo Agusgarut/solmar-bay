@@ -19,9 +19,10 @@ const SPAWNS = {
 
 export function stageShot(name, ctx) {
   const spawn = SPAWNS[name] || SPAWNS.start;
-  // The staged hour: night for the chase, sunset for the title, day else.
+  // The staged hour: golden hour for every shot — sunset for the title,
+  // late sun for the drive, dusk for the mission, neon night for the chase.
   // updateGame advances time from timeBase, so set the base, not the clock.
-  ctx.timeBase = name === 'chase' ? 21.5 : name === 'start' ? 17.3 : name === 'mission' ? 14 : 10;
+  ctx.timeBase = name === 'chase' ? 18.4 : name === 'start' ? 17.4 : name === 'mission' ? 17.9 : 17.6;
   ctx.timeOfDay = ctx.timeBase;
   // Driving shots get a green light on their axis so the car is at speed,
   // not queued behind traffic stopped at a red light.
@@ -45,6 +46,7 @@ export function stageShot(name, ctx) {
 
   if (name === 'drive' || name === 'chase') {
     // Put Dani in a car and let them drive while the police close in.
+    // The chase runs at 4 stars, so the helicopter is in the frame too.
     const type = name === 'chase' ? 'sport' : 'coupe';
     const model = createCarModel(type, name === 'chase' ? 0xd81e5b : 0x2e6fc2, ctx.rng);
     ctx.scene.add(model);
@@ -57,12 +59,30 @@ export function stageShot(name, ctx) {
     ctx.player.inCar = car;
     ctx.player.group.visible = false;
     ctx.police.setWanted(name === 'chase' ? 4 : 2);
-    return { simulateSeconds: 2.6, throttle: 1, steer: 0, orbit: false };
+    // Clear a corridor ahead of the car so the shot is a clean run, not a
+    // traffic jam: any moving car on the player's road (or crossing it at
+    // an intersection) within 160 m ahead is towed out of the frame.
+    const fx = Math.sin(spawn.heading);
+    const fz = Math.cos(spawn.heading);
+    for (let i = ctx.traffic.cars.length - 1; i >= 0; i -= 1) {
+      const c = ctx.traffic.cars[i];
+      const along = (c.x - spawn.x) * fx + (c.z - spawn.z) * fz;
+      const side = Math.abs((c.x - spawn.x) * fz - (c.z - spawn.z) * fx);
+      if (along > -10 && along < 160 && side < 9) {
+        ctx.scene.remove(c.model);
+        ctx.traffic.cars.splice(i, 1);
+      }
+    }
+    // Short sim (1.6 s): the pursuit needs a moment to close in, but a
+    // longer run lets a cop that spawned ahead meet the car head-on and
+    // pin it to a crawl.
+    return { simulateSeconds: 1.6, throttle: 1, steer: 0, orbit: false };
   }
 
   // Mission: the port shootout, pistol out, guards ahead. Pull the guards
   // onto the street in front of Dani so the shootout reads in the frame
-  // (their mission spots are behind the warehouses).
+  // (their mission spots are behind the warehouses). The mission banner
+  // and the intro dialogue stay up for the frame.
   ctx.missions.startMission(4, ctx);
   ctx.player.place(spawn.x, spawn.z, spawn.heading);
   const guardSpots = [[229, -172], [222, -181], [231, -190]];

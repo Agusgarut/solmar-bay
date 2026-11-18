@@ -57,6 +57,39 @@ export function createMinimap() {
         ctx.closePath();
         ctx.fill();
       }
+      // Landmarks: Solmar Tower (gold square), lighthouse (white) and the
+      // ferris wheel (pink) — the map reads as the city, not just roads.
+      const [tx, tz] = toMap(0, -90);
+      ctx.fillStyle = '#ffd23b';
+      ctx.fillRect(tx - 3, tz - 3, 6, 6);
+      const [lx, lz] = toMap(335, -320);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(lx, lz, 3, 0, Math.PI * 2);
+      ctx.fill();
+      const [wx, wz] = toMap(322, 120);
+      ctx.fillStyle = '#ff5e8a';
+      ctx.beginPath();
+      ctx.arc(wx, wz, 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Compass: N at the top edge.
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('N', SIZE / 2, 12);
+      // Player view cone: a faint wedge showing where Dani looks.
+      const [px2, pz2] = toMap(state.playerX, state.playerZ);
+      ctx.save();
+      ctx.translate(px2, pz2);
+      ctx.rotate(Math.PI - state.heading);
+      ctx.fillStyle = 'rgba(255,255,255,0.14)';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-14, -34);
+      ctx.lineTo(14, -34);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
       // Player arrow, rotated to the heading.
       const [px, pz] = toMap(state.playerX, state.playerZ);
       ctx.save();

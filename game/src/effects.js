@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 
-const MAX_PARTICLES = 240;
+const MAX_PARTICLES = 320;
 
 export function createEffects(scene) {
   const geometry = new THREE.BufferGeometry();
@@ -13,10 +13,10 @@ export function createEffects(scene) {
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const material = new THREE.PointsMaterial({
-    size: 0.9,
+    size: 0.7,
     vertexColors: true,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.7,
     depthWrite: false,
   });
   const points = new THREE.Points(geometry, material);
@@ -62,7 +62,7 @@ export function createEffects(scene) {
 
   return {
     dust(x, y, z) {
-      burst(x, y, z, 3, 1.2, 0.8, 0.7, 0.72, 0.66, 0.55);
+      burst(x, y, z, 2, 1.2, 0.8, 0.5, 0.55, 0.5, 0.42);
     },
     smoke(x, y, z) {
       burst(x, y, z, 4, 0.8, 1.6, 1.1, 0.25, 0.25, 0.28);
@@ -72,6 +72,14 @@ export function createEffects(scene) {
     },
     blood(x, y, z) {
       burst(x, y, z, 6, 2, 1.5, 0.5, 0.7, 0.08, 0.08);
+    },
+    // Bright muzzle flash at the gun: short-lived, hot yellow-white.
+    muzzle(x, y, z) {
+      burst(x, y, z, 10, 2.5, 1.2, 0.12, 1.0, 0.85, 0.4);
+    },
+    // Dark tyre smoke from a handbrake skid: slow, heavy, hangs low.
+    skidSmoke(x, y, z) {
+      burst(x, y, z, 5, 1.4, 0.5, 0.9, 0.16, 0.16, 0.18);
     },
     update(dt) {
       for (let i = 0; i < MAX_PARTICLES; i += 1) {

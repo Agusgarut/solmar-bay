@@ -140,19 +140,30 @@ export function createPlayer(scene) {
   };
 }
 
-// Follow camera: behind the focus point, smoothed, drag orbits the yaw.
-export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, player, dt, dragPixels) {
+// Follow camera: behind the focus point, smoothed, drag orbits the yaw and
+// tilts the pitch. At high speed in a car the camera shakes a little, so
+// fast driving feels fast.
+export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, player, dt, dragPixels, dragYPixels) {
   player.cameraYaw += dragPixels * 0.005;
+  if (dragYPixels) clampCameraPitch(player, player.cameraPitch + dragYPixels * 0.0025);
   // Camera sits behind the focus: yaw equals the facing direction, so the
   // camera offset (-sin yaw, -cos yaw) is the opposite of forward.
   const targetYaw = player.inCar ? focusHeading : player.cameraYaw;
   const yaw = angleLerp(player.cameraYaw, targetYaw, Math.min(1, dt * (player.inCar ? 2.2 : 5)));
   player.cameraYaw = yaw;
-  const dist = player.inCar ? CAMERA_DISTANCE + 3 : CAMERA_DISTANCE;
-  const height = player.inCar ? CAMERA_HEIGHT + 1.2 : CAMERA_HEIGHT;
-  const cx = focusX - Math.sin(yaw) * dist;
-  const cz = focusZ - Math.cos(yaw) * dist;
-  const cy = focusY + height;
+  const dist = player.inCar ? CAMERA_DISTANCE + 2.2 : CAMERA_DISTANCE;
+  // Pitch tilts the camera: low pitch is a low, cinematic chase cam.
+  const height = (player.inCar ? CAMERA_HEIGHT + 0.9 : CAMERA_HEIGHT) * (0.7 + player.cameraPitch * 0.9);
+  let cx = focusX - Math.sin(yaw) * dist;
+  let cz = focusZ - Math.cos(yaw) * dist;
+  let cy = focusY + height;
+  // Speed shake: a small random jitter at 100+ km/h in a car.
+  if (player.inCar && Math.abs(player.inCar.speed) > 28) {
+    const jitter = Math.min(0.16, (Math.abs(player.inCar.speed) - 28) * 0.008);
+    cx += (Math.random() - 0.5) * jitter;
+    cy += (Math.random() - 0.5) * jitter * 0.6;
+    cz += (Math.random() - 0.5) * jitter;
+  }
   camera.position.x += (cx - camera.position.x) * Math.min(1, dt * 7);
   camera.position.y += (cy - camera.position.y) * Math.min(1, dt * 7);
   camera.position.z += (cz - camera.position.z) * Math.min(1, dt * 7);

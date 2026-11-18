@@ -121,9 +121,10 @@ export function buildCity(scene, rng) {
   sand.receiveShadow = true;
   group.add(sand);
 
+  const waterMat = new THREE.MeshLambertMaterial({ color: PALETTE.water, emissive: 0xff7a3c, emissiveIntensity: 0 });
   const water = new THREE.Mesh(
     new THREE.PlaneGeometry(560, WORLD_HALF * 2 + 400),
-    new THREE.MeshLambertMaterial({ color: PALETTE.water }),
+    waterMat,
   );
   water.rotation.x = -Math.PI / 2;
   water.position.set(WATER_X + 280, -0.5, 0);
@@ -133,7 +134,7 @@ export function buildCity(scene, rng) {
   // Geometries are pre-rotated flat (rotateY turns a road along X into one
   // along Z), so no per-mesh Euler guesswork is needed.
   const roadTexture = makeRoadTexture();
-  const roadMat = new THREE.MeshLambertMaterial({ map: roadTexture });
+  const roadMat = new THREE.MeshLambertMaterial({ map: roadTexture, emissive: 0xff8a4a, emissiveIntensity: 0 });
   const walkMat = new THREE.MeshLambertMaterial({ color: PALETTE.sidewalk });
   const roadGeoX = new THREE.PlaneGeometry(WORLD_HALF * 2, ROAD_WIDTH);
   roadGeoX.rotateX(-Math.PI / 2);
@@ -260,6 +261,20 @@ export function buildCity(scene, rng) {
       box.position.set(cx, h + 1.5, cz);
       box.castShadow = true;
       group.add(box);
+    }
+    // Rooftop props on mid-rise buildings: AC boxes and antennas, so the
+    // skyline has something on top instead of flat slabs.
+    if (h > 18 && rng() < 0.55) {
+      const ac = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.1, 1.6), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 }));
+      ac.position.set(cx + w * 0.2, h + 0.55, cz - d * 0.15);
+      ac.castShadow = true;
+      group.add(ac);
+      const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 5, 5), poleMat);
+      antenna.position.set(cx - w * 0.25, h + 2.5, cz + d * 0.2);
+      group.add(antenna);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 5), new THREE.MeshLambertMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 0.8 }));
+      tip.position.set(cx - w * 0.25, h + 5.1, cz + d * 0.2);
+      group.add(tip);
     }
     // Neon sign on some tall downtown / beachfront buildings.
     if ((district === 'downtown' || district === 'beachfront') && h > 30 && rng() < 0.45) {
@@ -511,21 +526,88 @@ export function buildCity(scene, rng) {
     boats.push(boat);
   }
 
-  // Palms along the beach and street trees.
+  // Palms along the beach and street trees. A palm is a leaning trunk,
+  // seven drooping fronds and a pair of coconuts — the beachfront reads
+  // instantly as a beachfront, even from the title screen.
   function palm(x, z) {
     const palmGroup = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.4, 7, 6), trunkMat);
+    const lean = range(rng, -0.1, 0.1);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.42, 7, 6), trunkMat);
     trunk.position.y = 3.5;
+    trunk.rotation.z = lean;
     trunk.castShadow = true;
     palmGroup.add(trunk);
-    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(2.6, 0), leafMat);
-    crown.position.y = 7.6;
-    crown.scale.y = 0.7;
-    crown.castShadow = true;
-    palmGroup.add(crown);
+    const crownY = 7.3;
+    const crownX = lean * 7;
+    const frondMat = new THREE.MeshLambertMaterial({ color: 0x2e6b2e });
+    for (let i = 0; i < 7; i += 1) {
+      const angle = (i / 7) * Math.PI * 2;
+      const frond = new THREE.Mesh(new THREE.ConeGeometry(0.7, 3.6, 4), frondMat);
+      frond.scale.set(1, 1, 0.28);
+      frond.position.set(crownX + Math.sin(angle) * 1.5, crownY - 0.5, Math.cos(angle) * 1.5);
+      frond.rotation.set(Math.cos(angle) * 1.15, 0, -Math.sin(angle) * 1.15);
+      frond.castShadow = true;
+      palmGroup.add(frond);
+    }
+    const nutMat = new THREE.MeshLambertMaterial({ color: 0x6a4a2c });
+    for (const [nx, nz] of [[0.4, 0.3], [-0.4, -0.2]]) {
+      const nut = new THREE.Mesh(new THREE.SphereGeometry(0.28, 6, 5), nutMat);
+      nut.position.set(crownX + nx, crownY - 0.6, nz);
+      palmGroup.add(nut);
+    }
     palmGroup.position.set(x, 0, z);
     group.add(palmGroup);
   }
+
+  // Beach umbrellas: striped cones on the sand, with a towel beside some.
+  const umbrellaColors = [0xff5e8a, 0x4fd8ff, 0xffb13b, 0x7bff9e, 0xb46bff];
+  function umbrella(x, z, color) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), poleMat);
+    pole.position.set(x, 1.3, z);
+    group.add(pole);
+    const canopy = new THREE.Mesh(
+      new THREE.ConeGeometry(2.3, 1.1, 8),
+      new THREE.MeshLambertMaterial({ color }),
+    );
+    canopy.position.set(x, 2.9, z);
+    canopy.castShadow = true;
+    group.add(canopy);
+    if (rng() < 0.6) {
+      const towel = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.1, 2.1),
+        new THREE.MeshLambertMaterial({ color: pick(rng, umbrellaColors) }),
+      );
+      towel.rotation.x = -Math.PI / 2;
+      towel.rotation.z = rng() * Math.PI;
+      towel.position.set(x + range(rng, -2.5, 2.5), 0.06, z + range(rng, -2, 2));
+      group.add(towel);
+    }
+  }
+  for (let z = -320; z <= 320; z += 44) {
+    umbrella(BEACH_X + 18 + range(rng, -4, 10), z + range(rng, -8, 8), pick(rng, umbrellaColors));
+  }
+
+  // Billboards: big glowing signs over the main avenues.
+  function billboard(x, z, rotY, text, color) {
+    const board = new THREE.Group();
+    for (const dx of [-5.5, 5.5]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 9, 6), poleMat);
+      post.position.set(dx, 4.5, 0);
+      board.add(post);
+    }
+    const panel = new THREE.Mesh(
+      new THREE.PlaneGeometry(15, 5),
+      new THREE.MeshBasicMaterial({ map: makeSignTexture(text, color) }),
+    );
+    panel.position.set(0, 11, 0);
+    board.add(panel);
+    board.position.set(x, 0, z);
+    board.rotation.y = rotY;
+    group.add(board);
+  }
+  billboard(-45, -140, 0, 'SOLMAR BAY', '#4fd8ff');
+  billboard(135, 140, Math.PI, 'CASINO', '#ff5e8a');
+  billboard(45, 270, 0, 'PIZZA 24H', '#ffb13b');
   for (let z = -340; z <= 340; z += 28) palm(BEACH_X - 8 + range(rng, -3, 3), z);
   for (let i = 0; i < 30; i += 1) {
     tree(range(rng, -300, 280), range(rng, -300, 300), range(rng, 0.9, 1.3));
@@ -571,10 +653,10 @@ export function buildCity(scene, rng) {
   const sun = new THREE.DirectionalLight(0xfff2d8, 1.4);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -90;
-  sun.shadow.camera.right = 90;
-  sun.shadow.camera.top = 90;
-  sun.shadow.camera.bottom = -90;
+  sun.shadow.camera.left = -110;
+  sun.shadow.camera.right = 110;
+  sun.shadow.camera.top = 110;
+  sun.shadow.camera.bottom = -110;
   sun.shadow.camera.far = 500;
   sun.shadow.bias = -0.0006;
   scene.add(sun);
@@ -583,11 +665,27 @@ export function buildCity(scene, rng) {
   scene.add(hemi);
   scene.fog = new THREE.Fog(PALETTE.fogDay, 180, 700);
 
+  // The sun disc itself: a glowing ball low on the horizon at golden hour,
+  // so sunset screenshots have a sun to look at.
+  const sunDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(26, 24),
+    new THREE.MeshBasicMaterial({ color: PALETTE.sunDisc, fog: false, transparent: true, opacity: 0.95 }),
+  );
+  scene.add(sunDisc);
+  const sunGlow = new THREE.Mesh(
+    new THREE.CircleGeometry(52, 24),
+    new THREE.MeshBasicMaterial({ color: 0xff9a5c, fog: false, transparent: true, opacity: 0.28, depthWrite: false }),
+  );
+  scene.add(sunGlow);
+
   const skyDay = new THREE.Color(PALETTE.skyDay);
   const skySunset = new THREE.Color(PALETTE.skySunset);
+  const skyGolden = new THREE.Color(PALETTE.skyGolden);
   const skyNight = new THREE.Color(PALETTE.skyNight);
+  const fogSunset = new THREE.Color(PALETTE.fogSunset);
   const sunColor = new THREE.Color();
   let cycleTime = 0;
+  let nightF = 0; // 0 day .. 1 night, kept for traffic headlights
 
   // Traffic light cycle: 12 s. North-south green 0-5, yellow 5-6, then
   // east-west green 6-11, yellow 11-12.
@@ -617,18 +715,40 @@ export function buildCity(scene, rng) {
       playerPos.z + 90,
     );
     sun.target.position.copy(playerPos);
-    sun.intensity = 0.12 + dayFactor * 1.3;
+    sun.intensity = 0.25 + dayFactor * 1.25;
     sunColor.setRGB(1, lerp(0.55, 0.95, dayFactor), lerp(0.35, 0.9, dayFactor));
     sun.color.copy(sunColor);
-    hemi.intensity = 0.25 + dayFactor * 0.5;
+    hemi.intensity = 0.35 + dayFactor * 0.45 + sunsetFactor * 0.2;
     const sky = new THREE.Color().copy(skyNight).lerp(skyDay, dayFactor);
-    sky.lerp(skySunset, sunsetFactor * 0.65);
+    sky.lerp(skySunset, sunsetFactor * 0.8);
+    sky.lerp(skyGolden, sunsetFactor * 0.35);
     scene.background = sky;
     scene.fog.color.copy(sky).lerp(new THREE.Color(PALETTE.fogDay), dayFactor * 0.4);
+    scene.fog.color.lerp(fogSunset, sunsetFactor * 0.5);
+    // The sun disc hangs low in the west at golden hour.
+    const discVisible = elevation < 0.45 && elevation > -0.12;
+    sunDisc.visible = discVisible;
+    sunGlow.visible = discVisible;
+    if (discVisible) {
+      const dx = playerPos.x + azimuth * 620;
+      const dy = Math.max(26, elevation * 300 + 40);
+      const dz = playerPos.z + 320;
+      sunDisc.position.set(dx, dy, dz);
+      sunDisc.lookAt(playerPos.x, dy, playerPos.z);
+      sunGlow.position.set(dx, dy, dz - 2);
+      sunGlow.lookAt(playerPos.x, dy, playerPos.z);
+      sunDisc.material.opacity = 0.55 + sunsetFactor * 0.4;
+      sunGlow.material.opacity = 0.14 + sunsetFactor * 0.2;
+    }
     const night = 1 - dayFactor;
-    for (const bulb of lamps) bulb.material.emissiveIntensity = night * 1.6;
-    // Windows glow at night.
-    for (const mat of facadeMats) mat.emissiveIntensity = night * 0.85;
+    nightF = night;
+    // Windows and lamps glow at night — and already warm up at sunset.
+    for (const bulb of lamps) bulb.material.emissiveIntensity = (night + sunsetFactor * 0.45) * 1.6;
+    for (const mat of facadeMats) mat.emissiveIntensity = night * 0.85 + sunsetFactor * 0.4;
+    // The sea catches the sunset.
+    waterMat.emissiveIntensity = sunsetFactor * 0.35;
+    // The asphalt catches a little of it too, so the road never reads black.
+    roadMat.emissiveIntensity = sunsetFactor * 0.16;
     // Traffic light lamps follow the cycle.
     for (const head of lightHeads) {
       const state = lightForAxis(head.axis);
@@ -693,5 +813,5 @@ export function buildCity(scene, rng) {
     return false;
   }
 
-  return { colliders, lamps, update, resolveCircle, isOnRoad, sun, lightForAxis, setCycle(t) { cycleTime = t; } };
+  return { colliders, lamps, update, resolveCircle, isOnRoad, sun, lightForAxis, nightFactor() { return nightF; }, setCycle(t) { cycleTime = t; } };
 }
