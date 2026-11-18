@@ -1,4 +1,4 @@
-// Missions: Dani Reyes' story in six jobs. Each mission is a list of
+// Missions: Dani Reyes' story in seven jobs. Each mission is a list of
 // objectives — go somewhere, pick something up, take a car, survive a
 // shootout, lose the police — with a briefing, a 3D beacon over the target,
 // a HUD arrow and a cash reward. Finishing one unlocks the next and saves.
@@ -86,6 +86,23 @@ export const MISSIONS = [
       { type: 'goto', spot: 'safehouse', text: 'Kabur ke safehouse' },
     ],
   },
+  {
+    // The tide job: the crew's cut from a Beachfront deal is waiting
+    // with a courier. Take the cash, lose the SBPD helicopter and the
+    // pursuit cars, bring the money home to Rico's garage, then vanish
+    // into the safehouse. Four stages, like the reference's STAGE 4/4.
+    title: 'Arus Pasang',
+    briefing: 'Bagian kita dari kerjaan Beachfront sudah di tangan kurir. Ambil uangnya, kabur dari SBPD, dan bawa pulang ke garasi Rico.',
+    intro: { speaker: 'Rico', line: 'Uangnya di Beachfront, Dani. Ambil dan jangan berhenti sampai di garasiku.' },
+    doneLine: { speaker: 'Rico', line: 'Uangnya aman. Solmar Bay sekarang milik kita.' },
+    reward: 3500,
+    objectives: [
+      { type: 'goto', spot: 'beach', text: 'Ambil uang di Beachfront' },
+      { type: 'survive', seconds: 45, wanted: 4, text: 'Bertahan dari kejaran SBPD' },
+      { type: 'deliver', spot: 'garage', text: 'Bawa uang ke garasi Rico', say: { speaker: 'Dani', line: 'Uang di tangan. Sekarang ke garasi Rico.' } },
+      { type: 'goto', spot: 'safehouse', text: 'Sembunyi di safehouse' },
+    ],
+  },
 ];
 
 // Seconds as m:ss, like the reference's "2:06" countdown.
@@ -146,8 +163,8 @@ export function createMissions(scene) {
     if (index === 3) ctx.spawnMissionCar();
     // Mission 5 needs its guards.
     if (index === 4) ctx.spawnMissionEnemies();
-    // Mission 6 starts hot.
-    if (index === 5) ctx.police.setWanted(4);
+    // Missions 6 and 7 start hot: the police are already on the player.
+    if (index === 5 || index === 6) ctx.police.setWanted(4);
     return true;
   }
 
@@ -226,7 +243,10 @@ export function createMissions(scene) {
     survive(objective, dt, ctx, px, pz) {
       surviveTimer += dt;
       hideBeacon();
-      if (ctx.police.wanted < 2) ctx.police.setWanted(3);
+      // A survive objective can demand its own heat: the tide job wants
+      // 4 stars (helicopter included), the earlier escape is happy at 3.
+      const wanted = objective.wanted || 3;
+      if (ctx.police.wanted < wanted) ctx.police.setWanted(wanted);
       if (surviveTimer >= objective.seconds) advance(ctx);
     },
     // punch / kill / steal: the beacon stays on the spot.
@@ -242,6 +262,18 @@ export function createMissions(scene) {
     startMission,
     objectiveSpot,
     currentObjective,
+    // Shot staging: jump to an objective of the active mission and reset
+    // its counters, so the chase frame can open mid-mission at STAGE 2/4
+    // instead of replaying the pickup first.
+    stageObjective(index) {
+      if (!current) return false;
+      current.objectiveIndex = Math.max(0, Math.min(index, current.mission.objectives.length - 1));
+      raceIndex = 0;
+      killCount = 0;
+      surviveTimer = 0;
+      objectiveTimer = 0;
+      return true;
+    },
     fail,
     isActive() {
       return current !== null;

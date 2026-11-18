@@ -110,6 +110,27 @@ function stageDrive(name, spawn, ctx) {
   ctx.player.group.visible = false;
   ctx.police.setWanted(name === 'chase' ? 4 : 2);
 
+  // The radio is WAVE 88.1 in both driving shots, like the reference's
+  // radio card — Neon Drive while the sun goes down.
+  ctx.audio.setStation(1);
+  // Mid-chase vitals, like the reference's HEALTH 82 / ARMOUR 64, and
+  // the $18,450 the job is worth.
+  ctx.player.armor = 64;
+  ctx.save.money = 18450;
+  // The chase frame is mission 7 in progress: the cash is in the car,
+  // SBPD is at 4 stars, and the next stop is Rico's garage. The frame
+  // opens at STAGE 2/4 — the escape itself — so the mission panel reads
+  // "MISI 7/7 — Arus Pasang" with a live stage bar.
+  if (name === 'chase') {
+    ctx.missions.startMission(6, ctx);
+    ctx.missions.stageObjective(1);
+    ctx.save.missionsDone = 6;
+    ctx.player.health = 82;
+  } else {
+    // The drive frame previews the same job as the next mission.
+    ctx.save.missionIndex = 6;
+  }
+
   // Clear only the player's exact lane right ahead: cars in the other
   // lane and further out stay in the frame, so the street reads busy.
   for (let i = ctx.traffic.cars.length - 1; i >= 0; i -= 1) {

@@ -55,6 +55,14 @@ export function createHud() {
   const chipFists = document.getElementById('chip-fists');
   const chipPistol = document.getElementById('chip-pistol');
   const chipPistolLabel = document.getElementById('chip-pistol-label');
+  const chipSmg = document.getElementById('chip-smg');
+  const chipSmgLabel = document.getElementById('chip-smg-label');
+  const chipRifle = document.getElementById('chip-rifle');
+  const chipRifleLabel = document.getElementById('chip-rifle-label');
+  const chipSniper = document.getElementById('chip-sniper');
+  const chipSniperLabel = document.getElementById('chip-sniper-label');
+  const repTitle = document.getElementById('rep-title');
+  const repLevel = document.getElementById('rep-level');
   const carCondition = document.getElementById('car-condition');
   const carConditionFill = document.getElementById('car-condition-fill');
   const carConditionLabel = document.getElementById('car-condition-label');
@@ -130,22 +138,39 @@ export function createHud() {
     for (let i = 0; i < 5; i += 1) stars += i < state.wanted ? '★' : '☆';
     wantedEl.textContent = stars;
     wantedEl.classList.toggle('hot', state.wanted > 0);
-    // Wanted state line, like the reference's "IN SIGHT" under the stars.
-    // Round 13: the dot stays red while the word is white on a solid
-    // pill (see #wanted-state) — a red dot + white word reads at a
-    // glance, a small red word on pink sky did not.
-    if (state.wanted > 0) {
+    // Wanted state line, like the reference's "IN SIGHT · GULL-1" badge
+    // under the stars. While the helicopter's beam is on the player the
+    // pill names the helicopter: "TERLIHAT · HERON-1". Round 13: the
+    // dot stays red while the word is white on a solid pill (see
+    // #wanted-state) — a red dot + white word reads at a glance, a
+    // small red word on pink sky did not.
+    if (state.wanted > 0 && state.heliSpotting && state.heliUnit) {
+      wantedState.innerHTML = `<span style="color:#ff4f4f">●</span> TERLIHAT · ${state.heliUnit}`;
+      wantedState.classList.remove('safe');
+    } else if (state.wanted > 0) {
       wantedState.innerHTML = '<span style="color:#ff4f4f">●</span> TERLIHAT';
       wantedState.classList.remove('safe');
     } else {
       wantedState.innerHTML = '<span style="color:rgba(255,255,255,.6)">○</span> AMAN';
       wantedState.classList.add('safe');
     }
-    // Weapon chips under the stars: the equipped weapon is highlighted.
-    const hasPistol = state.weapon && state.weapon.name === 'pistol';
-    chipFists.classList.toggle('active', !hasPistol);
-    chipPistol.classList.toggle('active', !!hasPistol);
-    chipPistolLabel.textContent = `PISTOL ${state.weapon ? state.weapon.ammo : 0}`;
+    // Weapon chips under the stars: five numbered slots, like the
+    // reference's icon row. The equipped one is highlighted; slots the
+    // player doesn't own yet stay locked and dimmed.
+    const arsenal = state.arsenal || [];
+    const chips = [
+      { el: chipFists, label: null, slot: arsenal[0] },
+      { el: chipPistol, label: chipPistolLabel, slot: arsenal[1] },
+      { el: chipSmg, label: chipSmgLabel, slot: arsenal[2] },
+      { el: chipRifle, label: chipRifleLabel, slot: arsenal[3] },
+      { el: chipSniper, label: chipSniperLabel, slot: arsenal[4] },
+    ];
+    for (const { el, label, slot } of chips) {
+      if (!el || !slot) continue;
+      el.classList.toggle('active', !!slot.active);
+      el.classList.toggle('locked', !!slot.locked);
+      if (label) label.textContent = slot.locked ? `${slot.name} —` : `${slot.name} ${slot.ammo}`;
+    }
     // Weapon slot, GTA-style: name + ammo, on foot only.
     if (!state.inCar && state.weapon) {
       weaponEl.textContent = state.weapon.name === 'pistol'
@@ -213,21 +238,22 @@ export function createHud() {
       if (key === lastDispatchKey) return;
       lastDispatchKey = key;
       dispatchRows.innerHTML = '';
-      // At most 3 units, then a "+N more" line — the list must never
-      // grow down into the minimap.
-      for (const d of dispatch.slice(0, 3)) {
+      // Four units, like the reference's response panel — the helicopter
+      // first, then the closest pursuit cars — then a "+N more" line, so
+      // the list never grows down into the minimap.
+      for (const d of dispatch.slice(0, 4)) {
         const row = document.createElement('div');
         row.className = 'dispatch-row';
-        const statusClass = d.status === 'RAMMING' || d.status === 'ROADBLOCK'
+        const statusClass = d.status === 'RAMMING' || d.status === 'ROADBLOCK' || d.status === 'SPOTLIGHT ON YOU'
           ? 'dispatch-status ramming' : d.status === 'AIR SUPPORT' ? 'dispatch-status air'
           : d.status === 'FOOT' ? 'dispatch-status foot' : 'dispatch-status pursuit';
         row.innerHTML = `<span>${d.unit}</span><span class="dispatch-dist">${d.dist} m</span><span class="${statusClass}">${d.status}</span>`;
         dispatchRows.appendChild(row);
       }
-      if (dispatch.length > 3) {
+      if (dispatch.length > 4) {
         const more = document.createElement('div');
         more.className = 'dispatch-more';
-        more.textContent = `+${dispatch.length - 3} unit lagi di lokasi`;
+        more.textContent = `+${dispatch.length - 4} unit lagi di lokasi`;
         dispatchRows.appendChild(more);
       }
     } else {
@@ -241,7 +267,10 @@ export function createHud() {
   function updateRadioAndMap(state) {
     if (state.radio) {
       radioEl.classList.remove('hidden');
-      radioStation.textContent = `${state.radio.name} ${state.radio.freq}`;
+      // WAVE 88.1 already carries its frequency in the name — don't
+      // print it twice ("WAVE 88.1 88.1").
+      radioStation.textContent = state.radio.name.includes(state.radio.freq)
+        ? state.radio.name : `${state.radio.name} ${state.radio.freq}`;
       radioTrack.textContent = state.radio.track;
     }
     radioCar.textContent = state.vehicle ? state.vehicle.name : '';
@@ -261,10 +290,15 @@ export function createHud() {
       ? `${Math.round(Math.abs(state.speed) * 3.6)} <small>km/h</small>` : '';
     minimapLabel.textContent = state.street ? `${state.district.toUpperCase()} · ${state.street}` : state.district;
     // Respect meter under the minimap: jobs done + heat earned, with the
-    // progress numbers like the reference's "1,960 / 2,400".
+    // progress numbers like the reference's "1,960 / 2,400" — plus the
+    // REP level and street title, like its "REP 4 BAY HUSTLER" line.
     const respect = Math.max(0, Math.min(100, state.respect || 0));
     respectFill.style.width = `${respect}%`;
     respectValue.textContent = `${respect} / 100`;
+    const level = Math.min(5, 1 + Math.floor(respect / 20));
+    const titles = ['PEMAIN BARU', 'ANAK JALANAN', 'RAJA JALANAN', 'BINTANG SOLMAR', 'LEGENDA SOLMAR'];
+    repTitle.textContent = titles[level - 1];
+    repLevel.textContent = `REP ${level}`;
   }
 
   return {
