@@ -154,10 +154,12 @@ export function updateCamera(camera, focusX, focusY, focusZ, focusHeading, playe
   // 3/4 chase view: in a car the camera sits off to the car's right-rear,
   // so the frame shows the rear AND the flank — spoiler, rims, side intake
   // — instead of a dead-on rectangle from behind. The lookAt stays on the
-  // car, so the car just shifts slightly left in the frame.
+  // car, so the car just shifts slightly left in the frame. The offset is
+  // wide (2.2 m) on purpose: the reference frames the car from a clear
+  // rear 3/4, never dead behind it.
   if (player.inCar) {
-    cx += -Math.cos(yaw) * 1.6;
-    cz += Math.sin(yaw) * 1.6;
+    cx += -Math.cos(yaw) * 2.2;
+    cz += Math.sin(yaw) * 2.2;
   }
   // Speed shake: a small random jitter at 100+ km/h in a car.
   if (player.inCar && Math.abs(player.inCar.speed) > 28) {

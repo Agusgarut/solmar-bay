@@ -13,13 +13,13 @@ export const HERO_RED = 0xe8112d;
 
 export const CAR_TYPES = {
   sedan: { length: 4.4, width: 1.9, accel: 1.0, top: 1.0, color: 0xc23b2e, label: 'Solmar Sedan' },
-  coupe: { length: 4.3, width: 2.0, accel: 1.15, top: 1.12, color: 0xff3b30, label: 'Bayfront GT' },
+  coupe: { length: 4.6, width: 2.05, accel: 1.15, top: 1.12, color: 0xff3b30, label: 'Bayfront GT' },
   taxi: { length: 4.4, width: 1.9, accel: 0.95, top: 0.95, color: 0xe8b93b, label: 'Taksi Kuning' },
   van: { length: 5.2, width: 2.1, accel: 0.8, top: 0.85, color: 0x7a7f85, label: 'Van Kargo' },
-  sport: { length: 4.6, width: 2.15, accel: 1.35, top: 1.25, color: HERO_RED, label: 'Solmar GT' },
-  muscle: { length: 4.7, width: 2.05, accel: 1.25, top: 1.18, color: 0xff7a1a, label: 'Banteng GT' },
+  sport: { length: 4.9, width: 2.15, accel: 1.35, top: 1.25, color: HERO_RED, label: 'Solmar GT' },
+  muscle: { length: 4.9, width: 2.1, accel: 1.25, top: 1.18, color: 0xff7a1a, label: 'Banteng GT' },
   pickup: { length: 5.0, width: 2.0, accel: 0.9, top: 0.95, color: 0x2ea8a0, label: 'Pikap Pantai' },
-  convertible: { length: 4.4, width: 2.05, accel: 1.2, top: 1.15, color: 0xff7a1a, label: 'Solmar Cabrio' },
+  convertible: { length: 4.7, width: 2.05, accel: 1.2, top: 1.15, color: 0xff7a1a, label: 'Solmar Cabrio' },
   truck: { length: 5.6, width: 2.2, accel: 0.7, top: 0.8, color: 0xd8d8d8, label: 'Truk Kargo' },
   police: { length: 4.5, width: 1.95, accel: 1.2, top: 1.15, color: 0x1a1d22, label: 'SBPD Interceptor' },
 };
@@ -38,6 +38,89 @@ function box(group, w, h, d, material, x, y, z, shadow, rx = 0) {
   if (shadow) mesh.castShadow = true;
   group.add(mesh);
   return mesh;
+}
+
+// Rounded side-profile body: the car's silhouette drawn as a 2D shape
+// (x = along the car, front at +x; y = up) with every corner rounded by
+// quadratic curves, extruded across the width with a bevel — so the body
+// reads as a sculpted, rounded form from every angle instead of a
+// sharp-cornered box. The bevel rounds the side edges; the curves round
+// the silhouette (nose, roof, fastback, tail). The long edges stay
+// straight: a quadratic between two edge midpoints with the corner as
+// control point only bows where the corner itself turns.
+function roundedProfileGeometry(points, depth, bevel) {
+  const shape = new THREE.Shape();
+  const n = points.length;
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const m0 = mid(points[n - 1], points[0]);
+  shape.moveTo(m0[0], m0[1]);
+  for (let i = 0; i < n; i += 1) {
+    const p = points[i];
+    const q = points[(i + 1) % n];
+    const m = mid(p, q);
+    shape.quadraticCurveTo(p[0], p[1], m[0], m[1]);
+  }
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.8,
+    bevelSegments: 3, steps: 1, curveSegments: 8,
+  });
+  geo.translate(0, 0, -depth / 2);
+  // Shape x (car length, front +x) -> world +z; extrude z -> world x.
+  geo.rotateY(-Math.PI / 2);
+  return geo;
+}
+
+// Body silhouette per class, in fractions of the car's half-length.
+// Fast cars get the long low wedge: low nose, low roof, fastback deck
+// falling to a short tail face. Ordinary cars get a taller cabin base
+// (the glass cabin box sits on top of it). Vans are tall boxes with
+// rounded edges; trucks are a low rounded chassis (cab + cargo sit on
+// top, as before).
+function makeBodyGeometry(typeName, isFast) {
+  const type = CAR_TYPES[typeName];
+  const hl = type.length / 2;
+  let pts;
+  if (typeName === 'truck') {
+    pts = [[hl, 0.12], [hl, 0.8], [-hl, 0.8], [-hl, 0.12]];
+  } else if (typeName === 'van') {
+    pts = [[hl, 0.12], [hl, 1.5], [hl * 0.6, 1.62], [-hl * 0.8, 1.62], [-hl, 1.5], [-hl, 0.12]];
+  } else if (isFast) {
+    const roofH = typeName === 'convertible' ? 0.8 : 1.0;
+    pts = [
+      [hl, 0.12], [hl, 0.52], [hl * 0.55, 0.66], [hl * 0.18, 0.74],
+      [-hl * 0.08, roofH], [-hl * 0.42, roofH - 0.02],
+      [-hl * 0.94, 0.58], [-hl * 0.99, 0.42], [-hl * 0.99, 0.12],
+    ];
+  } else {
+    pts = [
+      [hl, 0.12], [hl, 0.6], [hl * 0.5, 0.8], [hl * 0.1, 0.88],
+      [-hl * 0.5, 0.88], [-hl * 0.85, 0.72], [-hl, 0.55], [-hl, 0.12],
+    ];
+  }
+  return roundedProfileGeometry(pts, type.width - 0.16, 0.08);
+}
+
+// Contact shadow: a soft dark ellipse right under the car, so it sits
+// ON the asphalt instead of floating above it — the real sun shadow is
+// long and soft at golden hour, and this grounds the car even where the
+// sun shadow falls far to the side. One shared radial-gradient texture.
+let contactShadowTex = null;
+function getContactShadowTexture() {
+  if (contactShadowTex) return contactShadowTex;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const g = canvas.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 6, 64, 64, 62);
+  grad.addColorStop(0, 'rgba(10, 8, 6, 0.55)');
+  grad.addColorStop(0.6, 'rgba(10, 8, 6, 0.32)');
+  grad.addColorStop(1, 'rgba(10, 8, 6, 0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  contactShadowTex = new THREE.CanvasTexture(canvas);
+  contactShadowTex.colorSpace = THREE.SRGBColorSpace;
+  return contactShadowTex;
 }
 
 function makeDoorTextTexture(text) {
@@ -139,15 +222,13 @@ export function createCarModel(typeName, color, rng, hero = false) {
   // positions off these heights, so the ordinary cars (sedan / taxi / van
   // / truck / pickup / police) keep exactly their old stance.
   const st = isFast ? {
-    bodyH: 0.5, bodyY: 0.48,
     grilleY: 0.46, slatA: 0.41, slatB: 0.51, bumperY: 0.28,
     mirrorY: 0.88, handleY: 0.8,
-    plateY: 0.44, plateFrontY: 0.4,
-    cabinH: 0.42, cabinY: 0.94, roofY: 1.16,
+    plateY: 0.34, plateFrontY: 0.4,
+    cabinH: 0.42, cabinY: 0.94, roofY: 1.02,
     lampY: 0.55, fogY: 0.3, indY: 0.53,
-    wingY: 1.32, wheelR: 0.5, wheelW: 0.44, rearW: 0.54,
+    wingY: 1.42, wheelR: 0.5, wheelW: 0.44, rearW: 0.54,
   } : {
-    bodyH: 0.62, bodyY: 0.55,
     grilleY: 0.52, slatA: 0.47, slatB: 0.57, bumperY: 0.32,
     mirrorY: 1.06, handleY: 0.95,
     plateY: 0.48, plateFrontY: 0.42,
@@ -155,13 +236,27 @@ export function createCarModel(typeName, color, rng, hero = false) {
     lampY: 0.64, fogY: 0.36, indY: 0.62,
     wingY: 1.22, wheelR: 0.42, wheelW: 0.34, rearW: 0.34,
   };
-  // The taillight strip's material, so braking can flare it too.
+  // The taillight strips' material, so braking can flare them too.
   let stripMat = null;
   // Plate number: the hero car is always SB-88; the rest vary.
   const plateText = hero
     ? 'SB·88' : `SB·${10 + Math.floor((rng || Math.random)() * 89)}`;
 
-  box(group, type.width, st.bodyH, type.length, bodyMat, 0, st.bodyY, 0, true);
+  // The body itself: a rounded, sculpted side profile (extruded + bevel),
+  // not a sharp box — the single biggest change against the boxy look.
+  // The bevel rounds the side edges, the profile curves round the nose,
+  // roof, fastback and tail.
+  const body = new THREE.Mesh(makeBodyGeometry(typeName, isFast), bodyMat);
+  body.castShadow = true;
+  group.add(body);
+  // Contact shadow: a soft dark ellipse right under the car.
+  const contact = new THREE.Mesh(
+    new THREE.PlaneGeometry(type.width * 1.3, type.length * 1.12),
+    new THREE.MeshBasicMaterial({ map: getContactShadowTexture(), transparent: true, depthWrite: false, opacity: 0.6 }),
+  );
+  contact.rotation.x = -Math.PI / 2;
+  contact.position.y = 0.06;
+  group.add(contact);
 
   // Two-tone roof panel over the cabin, plus a dark grille and bumpers so
   // the car reads as a car at a glance, not a painted box. Convertibles
@@ -184,8 +279,16 @@ export function createCarModel(typeName, color, rng, hero = false) {
   // 0.12 m mirror is invisible, a 0.2 m one reads as a mirror.
   for (const side of [-1, 1]) {
     box(group, 0.2, 0.12, 0.26, bodyMat, side * (type.width / 2 + 0.09), st.mirrorY, type.length * 0.12, false);
+    // Glass face on the mirror's outer side, so the mirror reads as a
+    // mirror (dark glass catching the sky) instead of a paint blob.
+    box(group, 0.02, 0.09, 0.2, glassMat, side * (type.width / 2 + 0.19), st.mirrorY, type.length * 0.12, false);
     // Door handles, one per side.
     box(group, 0.04, 0.06, 0.3, darkMat, side * (type.width / 2 + 0.01), st.handleY, type.length * 0.08, false);
+    // Panel shut line: a thin dark line along the flank, so the body
+    // reads as panelled sheet metal, not one flat slab.
+    if (isFast) {
+      box(group, 0.02, 0.03, type.length * 0.5, darkMat, side * (type.width / 2 + 0.005), 0.62, type.length * 0.05, false);
+    }
   }
   // License plates, front and rear: white plates with dark text, so the
   // rear of the car carries a readable mark instead of bare paint.
@@ -206,11 +309,15 @@ export function createCarModel(typeName, color, rng, hero = false) {
   // stance the wing towers over the fastback deck, like the reference's
   // red car — struts rise from the deck, not from the roof.
   if (isFast) {
-    box(group, type.width * 1.0, 0.09, 0.6, bodyMat, 0, st.wingY, -type.length / 2 + 0.22, false);
+    // The wing is the rear silhouette: wider than the body, deeper, and
+    // higher (1.42 m) on tall struts rising from the fastback deck, with
+    // tall end plates — it has to tower over the deck like the reference
+    // supercar's wing, not sit on the roof like a parcel shelf.
+    box(group, type.width * 1.06, 0.08, 0.7, bodyMat, 0, st.wingY, -type.length / 2 + 0.22, false);
     for (const side of [-1, 1]) {
-      box(group, 0.09, 0.58, 0.09, darkMat, side * (type.width / 2 - 0.32), 1.02, -type.length / 2 + 0.22, false);
+      box(group, 0.09, 0.8, 0.09, darkMat, side * (type.width / 2 - 0.32), 1.02, -type.length / 2 + 0.22, false);
       // End plates: vertical fins at each wing tip, the classic GT look.
-      box(group, 0.05, 0.4, 0.65, darkMat, side * (type.width / 2 - 0.02), st.wingY, -type.length / 2 + 0.22, false);
+      box(group, 0.05, 0.5, 0.75, darkMat, side * (type.width / 2 - 0.02), st.wingY, -type.length / 2 + 0.22, false);
     }
     // Front splitter and side skirts: the fast cars sit low and wide, so
     // they read as sports cars from the chase cam, not plain boxes.
@@ -220,40 +327,57 @@ export function createCarModel(typeName, color, rng, hero = false) {
       // Side air intake behind the front door, so the flank isn't blank.
       box(group, 0.06, 0.22, 0.5, darkMat, side * (type.width / 2 + 0.01), 0.55, -type.length * 0.08, false);
     }
-    // Rear diffuser with vertical fins, low at the back — the rear face
-    // gets a second dark layer below the bumper so it isn't one flat wall.
-    box(group, type.width * 0.82, 0.2, 0.3, darkMat, 0, 0.16, -type.length / 2 - 0.02, false);
+    // Rear diffuser with vertical fins, low at the back and PROTRUDING
+    // past the tail face — the rear gets a dark sculpted valance below
+    // the tail band, so the back isn't one flat wall.
+    box(group, type.width * 0.82, 0.24, 0.3, darkMat, 0, 0.14, -type.length / 2 - 0.1, false);
     for (const fx of [-0.5, -0.17, 0.17, 0.5]) {
-      box(group, 0.05, 0.2, 0.3, darkMat, fx * type.width * 0.8, 0.14, -type.length / 2 - 0.04, false);
+      box(group, 0.05, 0.24, 0.3, darkMat, fx * type.width * 0.8, 0.13, -type.length / 2 - 0.12, false);
     }
     // Twin exhaust tips, chrome and oversized, poking out of the diffuser.
-    const exhaustGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.26, 10);
+    const exhaustGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.26, 12);
     exhaustGeo.rotateX(Math.PI / 2);
     for (const side of [-1, 1]) {
       const tip = new THREE.Mesh(exhaustGeo, chromeMat);
-      tip.position.set(side * (type.width / 2 - 0.42), 0.26, -type.length / 2 - 0.12);
+      tip.position.set(side * (type.width / 2 - 0.42), 0.24, -type.length / 2 - 0.2);
       group.add(tip);
     }
-    // Sloped hood and fastback rear deck: thin boxes pitched a few
-    // degrees, so the profile reads as a wedge — long low nose, deck
-    // falling away to the wing — instead of a flat slab with a box on top.
-    box(group, type.width * 0.8, 0.05, type.length * 0.3, bodyMat, 0, 0.76, type.length * 0.28, false, -0.13);
-    box(group, type.width * 0.86, 0.05, type.length * 0.32, bodyMat, 0, 0.76, -type.length * 0.3, false, 0.15);
+    // Sloped hood: a thin box pitched a few degrees, so the nose reads
+    // as a wedge instead of a flat slab. The fastback deck is the body
+    // profile itself now (and the sloped rear glass below), not a slab.
+    box(group, type.width * 0.8, 0.05, type.length * 0.3, bodyMat, 0, 0.7, type.length * 0.28, false, -0.13);
     // Raised hood panel with a centre ridge, so the front reads sculpted
     // from the 3/4 angle instead of a flat slab.
-    box(group, type.width * 0.78, 0.07, type.length * 0.3, bodyMat, 0, 0.78, type.length * 0.26, false);
-    box(group, 0.16, 0.08, type.length * 0.28, bodyMat, 0, 0.81, type.length * 0.26, false);
+    box(group, type.width * 0.78, 0.07, type.length * 0.3, bodyMat, 0, 0.72, type.length * 0.26, false);
+    box(group, 0.16, 0.08, type.length * 0.28, bodyMat, 0, 0.74, type.length * 0.26, false);
     // Roof antenna fin on the hero car.
-    box(group, 0.08, 0.22, 0.4, darkMat, 0, 1.28, -type.length * 0.22, false);
-    // Dark glass canopy roof: the fast cars read as sleek sports cars
-    // from the chase cam — a dark canopy, not a pale slab that splits
-    // the car in two from behind.
-    box(group, type.width * 0.88, 0.06, type.length * 0.44, glassMat, 0, st.roofY, -type.length * 0.05, false);
-    // Rear light strip: a glowing bar across the back, so the car reads
-    // from behind at dusk. Brighter than before, and it flares on braking.
-    // The strip takes the paint colour — the red hero gets a red strip.
-    stripMat = new THREE.MeshLambertMaterial({ color: paint, emissive: paint, emissiveIntensity: 2.0 });
-    box(group, type.width * 0.92, 0.16, 0.06, stripMat, 0, 0.6, -type.length / 2 - 0.02, false);
+    box(group, 0.08, 0.22, 0.4, darkMat, 0, 1.12, -type.length * 0.22, false);
+    // Glasshouse that follows the profile: a raked windshield, a thin
+    // dark roof panel, and a STEEPLY SLOPED rear glass falling to the
+    // tail — from behind you see sloped glass and deck, never a vertical
+    // black wall. (The old flat canopy box is gone for exactly that
+    // reason.) rx +0.38 tips the windshield's front end down; rx -0.5
+    // tips the rear glass's tail end down. Convertibles skip it — they
+    // get the open top below instead.
+    const hl = type.length / 2;
+    if (typeName !== 'convertible') {
+      box(group, type.width * 0.8, 0.05, hl * 0.32, glassMat, 0, 0.87, hl * 0.05, false, 0.38);
+      // Roof panel in BODY colour, like the reference's red roof — the
+      // old dark-glass roof merged with the rear glass into one big
+      // black slab on top of the car.
+      box(group, type.width * 0.78, 0.05, hl * 0.31, bodyMat, 0, 1.02, -hl * 0.25, false);
+      box(group, type.width * 0.8, 0.05, hl * 0.47, glassMat, 0, 0.82, -hl * 0.63, false, -0.5);
+    }
+    // Thin tail band on the short tail face, with TWO THIN glowing
+    // strips at its top edge — the reference's slim taillights, not the
+    // old wide pale bar. The band is DARK so the two bright red strips
+    // read as two separate lines against it. Both strips share one
+    // material, so braking flares them together.
+    box(group, type.width * 0.9, 0.16, 0.06, darkMat, 0, 0.54, -type.length / 2 - 0.02, false);
+    stripMat = new THREE.MeshLambertMaterial({ color: 0xff2233, emissive: 0xff2233, emissiveIntensity: 2.6 });
+    for (const side of [-1, 1]) {
+      box(group, type.width * 0.3, 0.07, 0.04, stripMat, side * type.width * 0.27, 0.58, -type.length / 2 - 0.05, false);
+    }
   }
   if (typeName === 'muscle') {
     box(group, 0.7, 0.16, 0.9, darkMat, 0, 0.8, type.length * 0.16, false);
@@ -269,15 +393,15 @@ export function createCarModel(typeName, color, rng, hero = false) {
   // the same sleek profile as the other fast cars.
   if (typeName === 'convertible') {
     const windshield = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.8, 0.5, 0.06), glassMat);
-    windshield.position.set(0, 1.0, type.length * 0.14);
+    windshield.position.set(0, 0.92, type.length * 0.14);
     windshield.rotation.x = -0.28;
     group.add(windshield);
     for (const side of [-1, 1]) {
-      box(group, 0.08, 0.5, 0.08, darkMat, side * (type.width / 2 - 0.3), 1.02, -type.length * 0.16, false);
-      box(group, 0.55, 0.55, 0.45, darkMat, side * 0.42, 0.82, -type.length * 0.06, false);
-      box(group, 0.3, 0.22, 0.14, darkMat, side * 0.42, 1.12, -type.length * 0.14, false);
+      box(group, 0.08, 0.5, 0.08, darkMat, side * (type.width / 2 - 0.3), 0.94, -type.length * 0.16, false);
+      box(group, 0.55, 0.55, 0.45, darkMat, side * 0.42, 0.76, -type.length * 0.06, false);
+      box(group, 0.3, 0.22, 0.14, darkMat, side * 0.42, 1.0, -type.length * 0.14, false);
     }
-    box(group, type.width * 0.8, 0.08, 0.1, darkMat, 0, 1.26, -type.length * 0.16, false);
+    box(group, type.width * 0.8, 0.08, 0.1, darkMat, 0, 1.14, -type.length * 0.16, false);
   } else if (typeName === 'truck') {
     // Small box truck: a tall cab up front, a cargo box behind it.
     box(group, type.width * 0.92, 1.0, type.length * 0.26, bodyMat, 0, 1.15, type.length * 0.3, true);
@@ -304,9 +428,13 @@ export function createCarModel(typeName, color, rng, hero = false) {
     const head = new THREE.Mesh(lightGeo, headMat);
     head.position.set(side * (type.width / 2 - 0.32), st.lampY, type.length / 2);
     group.add(head);
-    const tail = new THREE.Mesh(lightGeo, tailMat);
-    tail.position.set(side * (type.width / 2 - 0.32), st.lampY, -type.length / 2);
-    group.add(tail);
+    // Fast cars carry the thin glowing strips instead of these square
+    // lamps, so the tail stays sculpted.
+    if (!isFast) {
+      const tail = new THREE.Mesh(lightGeo, tailMat);
+      tail.position.set(side * (type.width / 2 - 0.32), st.lampY, -type.length / 2);
+      group.add(tail);
+    }
     // Fog lamps low in the front bumper.
     box(group, 0.2, 0.12, 0.06, headMat, side * (type.width / 2 - 0.42), st.fogY, type.length / 2 + 0.04, false);
     // Amber turn indicators beside the headlights, so the front face has
@@ -368,11 +496,11 @@ export function createCarModel(typeName, color, rng, hero = false) {
   const wheelRadius = isFast ? st.wheelR : (typeName === 'truck' ? 0.46 : 0.42);
   const wheelWidth = isFast ? st.wheelW : (typeName === 'truck' ? 0.4 : 0.34);
   const rearWidth = isFast ? st.rearW : wheelWidth;
-  const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 14);
+  const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 24);
   wheelGeo.rotateZ(Math.PI / 2);
-  const rearGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, rearWidth, 14);
+  const rearGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, rearWidth, 24);
   rearGeo.rotateZ(Math.PI / 2);
-  const rimGeo = new THREE.CircleGeometry(wheelRadius * 0.62, 20);
+  const rimGeo = new THREE.CircleGeometry(wheelRadius * 0.62, 32);
   const rimMat = typeName === 'police'
     ? new THREE.MeshLambertMaterial({ color: 0x3a3d42 })
     : new THREE.MeshBasicMaterial({ map: makeRimTexture() });
@@ -392,6 +520,27 @@ export function createCarModel(typeName, color, rng, hero = false) {
     wheel.add(rim);
     wheels.push(wheel);
   }
+  // Wheel-arch shells on fast cars: a curved half-cylinder band over
+  // each tyre, body-coloured — the fender reads as a rounded arch
+  // hugging the wheel, not a square hole cut in a slab. The cylinder's
+  // theta half (0..PI) becomes the TOP half after rotateZ(PI/2).
+  if (isFast) {
+    const archMat = bodyMat.clone();
+    archMat.side = THREE.DoubleSide;
+    // Two shared geometries (front / rear tyre widths), reused by all
+    // four arches — one geometry per car, not per wheel.
+    const archGeoF = new THREE.CylinderGeometry(wheelRadius + 0.08, wheelRadius + 0.08, wheelWidth + 0.18, 12, 1, true, 0, Math.PI);
+    archGeoF.rotateZ(Math.PI / 2);
+    const archGeoR = new THREE.CylinderGeometry(wheelRadius + 0.08, wheelRadius + 0.08, rearWidth + 0.18, 12, 1, true, 0, Math.PI);
+    archGeoR.rotateZ(Math.PI / 2);
+    for (const [wx, wz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+      const isRear = wz < 0;
+      const arch = new THREE.Mesh(isRear ? archGeoR : archGeoF, archMat);
+      const outboard = type.width / 2 - 0.02;
+      arch.position.set(wx * outboard, wheelRadius, wz * (type.length / 2 - 0.75));
+      group.add(arch);
+    }
+  }
   group.userData.wheels = wheels;
   group.userData.type = type;
   group.userData.headMat = headMat;
@@ -402,7 +551,7 @@ export function createCarModel(typeName, color, rng, hero = false) {
   };
   group.userData.setBraking = (on) => {
     tailMat.emissiveIntensity = on ? 2.6 : 1.0;
-    if (stripMat) stripMat.emissiveIntensity = on ? 3.4 : 2.0;
+    if (stripMat) stripMat.emissiveIntensity = on ? 3.6 : 2.6;
   };
   return group;
 }

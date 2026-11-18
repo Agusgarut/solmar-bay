@@ -68,6 +68,13 @@ function makeRoadTexture() {
   g.fillStyle = 'rgba(28, 24, 20, 0.20)';
   g.fillRect(0, 12, 512, 7);
   g.fillRect(0, 45, 512, 7);
+  // Fine grain: hundreds of tiny speckles, so the asphalt reads as
+  // textured aggregate at close range instead of a flat grey slab.
+  for (let i = 0; i < 900; i += 1) {
+    const v = rng01();
+    g.fillStyle = v < 0.5 ? 'rgba(255, 240, 210, 0.05)' : 'rgba(20, 16, 12, 0.07)';
+    g.fillRect(rng01() * 512, rng01() * 64, 1 + rng01() * 1.5, 1);
+  }
   // Sunlit sheen band on the sun side of the road, stronger now that the
   // base is lighter: the road must glow a little in the sunset.
   const sheen = g.createLinearGradient(0, 0, 0, 20);
@@ -77,9 +84,15 @@ function makeRoadTexture() {
   g.fillRect(0, 0, 512, 20);
   // Double yellow centre lines, 1 px thin and close together like the
   // reference's — the old 2-3 px lines read as fat yellow slabs at speed.
+  // Slightly worn: a few short faded gaps, so the markings read used,
+  // not freshly painted.
   g.fillStyle = '#f2c230';
   g.fillRect(0, 31, 512, 1);
   g.fillRect(0, 33, 512, 1);
+  for (let i = 0; i < 14; i += 1) {
+    g.fillStyle = 'rgba(110, 103, 92, 0.55)';
+    g.fillRect(rng01() * 512, 31, 3 + rng01() * 8, 3);
+  }
   // White edge lines.
   g.fillStyle = '#e8e4da';
   g.fillRect(0, 3, 512, 2);
@@ -90,6 +103,33 @@ function makeRoadTexture() {
   texture.repeat.set(45, 1);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
+}
+
+// Sand texture: dry pale sand at the promenade edge fading to a darker
+// wet band at the waterline, with fine speckle — the beach reads as sand
+// with a shoreline, not a flat yellow slab.
+function makeSandTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 256;
+  const g = canvas.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 128, 0);
+  grad.addColorStop(0, '#e8d29a');
+  grad.addColorStop(0.7, '#dfc68e');
+  grad.addColorStop(1, '#c9a86e');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 256);
+  for (let i = 0; i < 500; i += 1) {
+    const v = rng01();
+    g.fillStyle = v < 0.5 ? 'rgba(255, 244, 210, 0.08)' : 'rgba(120, 95, 50, 0.08)';
+    g.fillRect(rng01() * 128, rng01() * 256, 1 + rng01() * 2, 1);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1, 12);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 // Tiny deterministic pseudo-random for texture painting (not the seeded
@@ -168,7 +208,8 @@ export function buildCity(scene, rng) {
     new THREE.PlaneGeometry(WATERLINE_X - SAND_X0, WORLD_HALF * 2),
     // A touch of warm emissive: the sand sits in the hotels' long shadows
     // at golden hour, and without it the beach reads grey-green, not sand.
-    new THREE.MeshLambertMaterial({ color: PALETTE.sand, emissive: 0x8a7a4a, emissiveIntensity: 0.25 }),
+    // Kept low (0.12) so shadowed sand still reads as shadow.
+    new THREE.MeshLambertMaterial({ map: makeSandTexture(), emissive: 0x8a7a4a, emissiveIntensity: 0.12 }),
   );
   sand.rotation.x = -Math.PI / 2;
   sand.position.set((SAND_X0 + WATERLINE_X) / 2, 0.03, 0);
@@ -267,7 +308,7 @@ export function buildCity(scene, rng) {
   stopGeo.rotateX(Math.PI / 2);
   const stopMat = new THREE.MeshLambertMaterial({ color: 0xc22222, emissive: 0x881111, emissiveIntensity: 0.4 });
   const stopPoleMat = new THREE.MeshLambertMaterial({ color: 0x2c2f33 });
-  const stopPoleGeo = new THREE.CylinderGeometry(0.07, 0.09, 2.6, 6);
+  const stopPoleGeo = new THREE.CylinderGeometry(0.07, 0.09, 2.6, 8);
   for (const [sx, sz, rotY] of [
     [-45, -54, 0], [45, 54, Math.PI], [-135, 36, Math.PI / 2], [135, -36, -Math.PI / 2],
     [45, -54, 0], [-45, 54, Math.PI], [225, -54, 0], [-225, 54, Math.PI],
@@ -291,7 +332,7 @@ export function buildCity(scene, rng) {
       for (const axis of ['x', 'z']) {
         const cornerX = ix + (axis === 'x' ? 9 : -9);
         const cornerZ = iz + (axis === 'x' ? -9 : 9);
-        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 6.4, 6), poleMat);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 6.4, 10), poleMat);
         pole.position.set(cornerX, 3.2, cornerZ);
         group.add(pole);
         const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.9, 0.5), poleMat);
@@ -365,11 +406,14 @@ export function buildCity(scene, rng) {
       group.add(sign);
     }
     if (district !== 'industrial' && h < 30 && rng() < (district === 'beachfront' ? 0.6 : 0.4)) {
-      const awning = new THREE.Mesh(
-        new THREE.BoxGeometry(Math.min(w * 0.7, 14), 0.18, 1.4),
-        pick(rng, awningMats),
-      );
-      awning.position.set(cx, 3.4, cz + d / 2 + 0.7);
+      // Curved barrel awning (half-cylinder), not a flat box slab: it
+      // bulges out over the shopfront and reads as a canopy.
+      const awningLen = Math.min(w * 0.7, 14);
+      const awningGeo = new THREE.CylinderGeometry(0.45, 0.45, awningLen, 10, 1, false, 0, Math.PI);
+      awningGeo.rotateZ(Math.PI / 2);
+      awningGeo.rotateX(Math.PI / 2);
+      const awning = new THREE.Mesh(awningGeo, pick(rng, awningMats));
+      awning.position.set(cx, 3.3, cz + d / 2);
       awning.castShadow = true;
       group.add(awning);
     }
@@ -401,6 +445,14 @@ export function buildCity(scene, rng) {
     building.receiveShadow = true;
     group.add(building);
     colliders.push({ x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2, z1: cz + d / 2 });
+    // Stepped roof cap: a slightly inset slab on top, so the roofline
+    // steps instead of ending in one sharp box edge.
+    if (h <= 42) {
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(w * 0.92, 0.5, d * 0.92), roof);
+      cap.position.set(cx, h + 0.25, cz);
+      cap.castShadow = true;
+      group.add(cap);
+    }
     // Rooftop box on tall towers.
     if (h > 42) {
       const box = new THREE.Mesh(new THREE.BoxGeometry(w * 0.3, 3, d * 0.3), roof);
@@ -417,11 +469,11 @@ export function buildCity(scene, rng) {
   const leafMat = new THREE.MeshLambertMaterial({ color: 0x4d9450 });
   function tree(x, z, scale) {
     const s = scale || 1;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * s, 0.28 * s, 3 * s, 6), trunkMat);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * s, 0.28 * s, 3 * s, 10), trunkMat);
     trunk.position.set(x, 1.5 * s, z);
     trunk.castShadow = true;
     group.add(trunk);
-    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.9 * s, 0), leafMat);
+    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.9 * s, 1), leafMat);
     crown.position.set(x, 3.8 * s, z);
     crown.castShadow = true;
     group.add(crown);
@@ -726,7 +778,7 @@ export function buildCity(scene, rng) {
   const palmFrondMidGeo = makeFrondGeometry(5.0, 0.3, 0.42, 0.65);
   const palmFrondUpGeo = makeFrondGeometry(4.3, 0.55, 0.28, 0.55);
   const palmFrondMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true });
-  const palmNutGeo = new THREE.SphereGeometry(0.28, 6, 5);
+  const palmNutGeo = new THREE.SphereGeometry(0.28, 8, 6);
   const palmNutMat = new THREE.MeshLambertMaterial({ color: 0x6a4a2c });
   // Ringed trunk texture: palm trunks are banded where old fronds fell.
   function makeTrunkTexture(base, band) {
@@ -736,9 +788,9 @@ export function buildCity(scene, rng) {
     const g = canvas.getContext('2d');
     g.fillStyle = base;
     g.fillRect(0, 0, 64, 128);
-    for (let y = 0; y < 128; y += 9) {
+    for (let y = 0; y < 128; y += 6) {
       g.fillStyle = band;
-      g.fillRect(0, y, 64, 3);
+      g.fillRect(0, y, 64, 2);
     }
     for (let i = 0; i < 12; i += 1) {
       g.fillStyle = 'rgba(0,0,0,0.08)';
@@ -751,7 +803,7 @@ export function buildCity(scene, rng) {
   // Tall SLIM trunk, gently curved (bent in the geometry, not just leaned):
   // the reference palms are slender and arc, never straight columns.
   const palmTrunkGeo = (() => {
-    const geo = new THREE.CylinderGeometry(0.16, 0.36, 8, 7, 8);
+    const geo = new THREE.CylinderGeometry(0.16, 0.36, 8, 10, 8);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i += 1) {
       const y = pos.getY(i);
@@ -761,7 +813,7 @@ export function buildCity(scene, rng) {
     geo.computeVertexNormals();
     return geo;
   })();
-  const palmFlareGeo = new THREE.CylinderGeometry(0.36, 0.58, 0.9, 7);
+  const palmFlareGeo = new THREE.CylinderGeometry(0.36, 0.58, 0.9, 10);
   // Beachfront palms wear the reference's tall RED trunks; avenue palms
   // wear ringed brown bark.
   const palmTrunkMatRed = new THREE.MeshLambertMaterial({ map: makeTrunkTexture('#9e3b2c', '#7e2d22') });
@@ -817,18 +869,21 @@ export function buildCity(scene, rng) {
     group.add(palmGroup);
   }
 
-  // Beach umbrellas: striped cones on the sand, with a towel beside some
+  // Beach umbrellas: striped domes on the sand, with a towel beside some
   // and a beach chair beside others — the sand must read populated.
   const umbrellaColors = [0xff5e8a, 0x4fd8ff, 0xffb13b, 0x7bff9e, 0xb46bff];
   function umbrella(x, z, color) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), poleMat);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 8), poleMat);
     pole.position.set(x, 1.3, z);
     group.add(pole);
+    // Domed canopy (squashed hemisphere), not a cone: the umbrella reads
+    // round, like a real beach umbrella.
     const canopy = new THREE.Mesh(
-      new THREE.ConeGeometry(2.3, 1.1, 8),
+      new THREE.SphereGeometry(2.3, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2),
       new THREE.MeshLambertMaterial({ color }),
     );
-    canopy.position.set(x, 2.9, z);
+    canopy.scale.y = 0.55;
+    canopy.position.set(x, 2.55, z);
     canopy.castShadow = true;
     group.add(canopy);
     if (rng() < 0.6) {
@@ -876,7 +931,7 @@ export function buildCity(scene, rng) {
     const panelH = big ? 7 : 5;
     const panelY = big ? 19 : 11;
     for (const dx of [-panelW / 2, panelW / 2]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, postH, 6), poleMat);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, postH, 10), poleMat);
       post.position.set(dx, postH / 2, 0);
       board.add(post);
     }
@@ -924,8 +979,8 @@ export function buildCity(scene, rng) {
 
   // Street lamps along the roads.
   const bulbMat = new THREE.MeshLambertMaterial({ color: 0xffe9a8, emissive: 0xffdf8a, emissiveIntensity: 0 });
-  const poleGeo = new THREE.CylinderGeometry(0.12, 0.16, 6, 6);
-  const bulbGeo = new THREE.SphereGeometry(0.35, 8, 6);
+  const poleGeo = new THREE.CylinderGeometry(0.12, 0.16, 6, 10);
+  const bulbGeo = new THREE.SphereGeometry(0.35, 12, 8);
   for (const p of ROAD_POSITIONS) {
     for (let t = -320; t <= 320; t += 64) {
       const pole = new THREE.Mesh(poleGeo, poleMat);
@@ -970,9 +1025,9 @@ export function buildCity(scene, rng) {
   sun.shadow.bias = -0.0006;
   scene.add(sun);
   scene.add(sun.target);
-  const hemi = new THREE.HemisphereLight(0xbfd9ff, 0x8a7a5a, 0.7);
+  const hemi = new THREE.HemisphereLight(0xd8c8e8, 0x8a7a5a, 0.7);
   scene.add(hemi);
-  scene.fog = new THREE.Fog(PALETTE.fogDay, 180, 700);
+  scene.fog = new THREE.Fog(PALETTE.fogDay, 150, 650);
 
   // The sun disc itself: a glowing ball low on the horizon at golden hour,
   // so sunset screenshots have a sun to look at. Amber, not pale — a pale
@@ -983,10 +1038,23 @@ export function buildCity(scene, rng) {
     new THREE.MeshBasicMaterial({ color: 0xff9a1e, fog: false, transparent: true, opacity: 1 }),
   );
   scene.add(sunDisc);
-  const sunGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(100, 24),
-    new THREE.MeshBasicMaterial({ color: 0xff7a1a, fog: false, transparent: true, opacity: 0.4, depthWrite: false }),
-  );
+  // Sun halo: a soft radial-gradient sprite, much bigger than the disc,
+  // so the sun glows instead of sitting as a flat orange coin. The
+  // gradient falls to transparent at the edge — no hard rim.
+  const haloCanvas = document.createElement('canvas');
+  haloCanvas.width = 256;
+  haloCanvas.height = 256;
+  const haloG = haloCanvas.getContext('2d');
+  const haloGrad = haloG.createRadialGradient(128, 128, 4, 128, 128, 128);
+  haloGrad.addColorStop(0, 'rgba(255, 190, 90, 0.85)');
+  haloGrad.addColorStop(0.35, 'rgba(255, 140, 40, 0.45)');
+  haloGrad.addColorStop(1, 'rgba(255, 120, 30, 0)');
+  haloG.fillStyle = haloGrad;
+  haloG.fillRect(0, 0, 256, 256);
+  const haloTex = new THREE.CanvasTexture(haloCanvas);
+  haloTex.colorSpace = THREE.SRGBColorSpace;
+  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, fog: false, transparent: true, opacity: 0.9, depthWrite: false }));
+  sunGlow.scale.set(340, 340, 1);
   scene.add(sunGlow);
 
   // Gradient sky dome: violet overhead fading through pink to gold at
@@ -1026,6 +1094,7 @@ export function buildCity(scene, rng) {
   for (const [cx, cy, r] of [[70, 70, 46], [120, 78, 52], [180, 70, 44], [100, 55, 34], [155, 55, 32]]) {
     const grad = cloudG.createRadialGradient(cx, cy, 4, cx, cy, r);
     grad.addColorStop(0, 'rgba(255,214,232,0.9)');
+    grad.addColorStop(0.5, 'rgba(255,214,232,0.45)');
     grad.addColorStop(1, 'rgba(255,214,232,0)');
     cloudG.fillStyle = grad;
     cloudG.fillRect(0, 0, 256, 128);
@@ -1091,14 +1160,14 @@ export function buildCity(scene, rng) {
       playerPos.z + 120,
     );
     sun.target.position.copy(playerPos);
-    sun.intensity = 0.25 + dayFactor * 1.5 + sunsetFactor * 0.45;
+    sun.intensity = 0.3 + dayFactor * 1.7 + sunsetFactor * 0.5;
     sunColor.setRGB(1, lerp(0.7, 0.97, dayFactor), lerp(0.55, 0.93, dayFactor));
     sun.color.copy(sunColor);
-    // Hemisphere fill a touch stronger than before: at golden hour the
-    // hotel shadows on the beach road used to swallow the asphalt in the
-    // lower-right of the drive/chase frames. The fill lifts the shaded
-    // road just enough to read, without washing the long shadows out.
-    hemi.intensity = 0.34 + dayFactor * 0.45 + sunsetFactor * 0.12;
+    // Hemisphere fill lower than before, so shaded road and shaded
+    // facades read as actual shadow (warm, not black) instead of
+    // washing out to flat daylight — the long golden-hour shadows have
+    // to stripe the road in the drive/chase frames.
+    hemi.intensity = 0.29 + dayFactor * 0.35 + sunsetFactor * 0.09;
     const sky = new THREE.Color().copy(skyNight).lerp(skyDay, dayFactor);
     sky.lerp(skySunset, sunsetFactor * 0.8);
     sky.lerp(skyGolden, sunsetFactor * 0.35);
@@ -1127,9 +1196,8 @@ export function buildCity(scene, rng) {
       sunDisc.position.set(dx, dy, dz);
       sunDisc.lookAt(playerPos.x, dy, playerPos.z);
       sunGlow.position.set(dx, dy, dz - 2);
-      sunGlow.lookAt(playerPos.x, dy, playerPos.z);
       sunDisc.material.opacity = 1;
-      sunGlow.material.opacity = 0.3 + sunsetFactor * 0.2;
+      sunGlow.material.opacity = 0.55 + sunsetFactor * 0.35;
     }
     const night = 1 - dayFactor;
     nightF = night;
@@ -1141,9 +1209,9 @@ export function buildCity(scene, rng) {
     // glow, so the water stays bright instead of going muddy grey.
     waterMat.emissiveIntensity = 0.3 + sunsetFactor * 0.1;
     // The asphalt catches a little of it too — a small warm floor under
-    // the sunset glow, so shadowed road reads sunlit, never a flat black
-    // corner in the drive/chase frames.
-    roadMat.emissiveIntensity = 0.05 + sunsetFactor * 0.06;
+    // the sunset glow. Kept low now, so shadowed road stays visibly
+    // darker than sunlit road instead of glowing through its own shadow.
+    roadMat.emissiveIntensity = 0.03 + sunsetFactor * 0.04;
     // Clouds drift slowly across the sky and fade out at night.
     for (const cloud of clouds) {
       cloud.position.x += dt * 1.2;
