@@ -50,10 +50,16 @@
   #mission-chapter { font-size: 11px; letter-spacing: 3px; color: #ffd23b; font-weight: 800; margin-top: 6px; }
   #mission-title { font-size: 17px; font-weight: 800; margin-top: 2px; }
   #mission-objective { font-size: 14px; margin-top: 4px; line-height: 1.4; border-left: 3px solid #ffd23b; padding-left: 8px; }
+  #mission-sub { font-size: 12px; opacity: .75; margin-top: 3px; }
+  #mission-sub:empty { display: none; }
+  #mission-stage { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+  #mission-stage-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #ffd23b; white-space: nowrap; }
+  #mission-stage-bar { flex: 1; height: 8px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.25); border-radius: 4px; overflow: hidden; }
+  #mission-stage-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ffb13b, #ffd23b); }
   #mission-next { font-size: 12px; color: #4fd8ff; font-weight: 700; margin-top: 5px; }
 
   /* Police dispatch list (left, under the mission panel). */
-  #dispatch { position: absolute; top: 316px; left: 14px; width: 300px; background: rgba(8,10,18,.74); border: 1px solid rgba(255,80,80,.45); border-radius: 10px; padding: 10px 12px; }
+  #dispatch { position: absolute; top: 306px; left: 14px; width: 300px; background: rgba(8,10,18,.74); border: 1px solid rgba(255,80,80,.45); border-radius: 10px; padding: 10px 12px; }
   #dispatch-head { font-size: 11px; letter-spacing: 2px; color: #ff6b6b; font-weight: 800; margin-bottom: 4px; }
   .dispatch-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 3px 0; border-top: 1px solid rgba(255,255,255,.08); }
   .dispatch-row .dispatch-dist { opacity: .8; }
@@ -72,6 +78,13 @@
   #wanted-label { font-size: 11px; letter-spacing: 3px; font-weight: 800; opacity: .85; margin-top: 2px; }
   #wanted { font-size: 30px; letter-spacing: 4px; color: #ffd23b; }
   #wanted.hot { animation: pulse 0.7s infinite alternate; text-shadow: 0 0 14px rgba(255,210,59,.95), 0 0 30px rgba(255,120,40,.55); }
+  #wanted-state { font-size: 11px; letter-spacing: 2px; font-weight: 800; margin-top: 2px; color: #ff6b6b; }
+  #wanted-state.safe { color: rgba(255,255,255,.55); }
+  /* Weapon chips under the stars, like the reference's icon row. */
+  #weapon-row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+  .weapon-chip { display: flex; align-items: center; gap: 5px; background: rgba(8,10,18,.72); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 800; letter-spacing: 1px; opacity: .55; }
+  .weapon-chip.active { opacity: 1; border-color: #ffd23b; color: #ffd23b; }
+  .weapon-chip svg { display: block; }
   @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
 
   #objective { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); max-width: 70%; text-align: center; font-size: 16px; font-weight: 600; background: rgba(0,0,0,.5); padding: 8px 16px; border-radius: 8px; }
@@ -80,12 +93,27 @@
   #radio { position: absolute; right: 16px; bottom: 72px; text-align: right; background: rgba(8,10,18,.74); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 8px 12px; }
   #radio-station { font-size: 13px; font-weight: 800; color: #4fd8ff; letter-spacing: 1px; }
   #radio-track { font-size: 12px; opacity: .85; }
+  #radio-eq { display: flex; align-items: flex-end; gap: 2px; height: 14px; margin-top: 4px; justify-content: flex-end; }
+  #radio-eq i { width: 3px; background: #4fd8ff; border-radius: 1px; transform-origin: bottom; animation: eq 0.7s infinite ease-in-out alternate; }
+  #radio-eq i:nth-child(1) { height: 6px; animation-delay: 0s; }
+  #radio-eq i:nth-child(2) { height: 12px; animation-delay: .12s; }
+  #radio-eq i:nth-child(3) { height: 8px; animation-delay: .24s; }
+  #radio-eq i:nth-child(4) { height: 14px; animation-delay: .06s; }
+  #radio-eq i:nth-child(5) { height: 9px; animation-delay: .3s; }
+  @keyframes eq { from { transform: scaleY(.35); } to { transform: scaleY(1); } }
   #radio-car { font-size: 12px; opacity: .75; margin-top: 2px; }
-  #speed { position: absolute; right: 16px; bottom: 12px; font-size: 56px; font-weight: 900; line-height: 1; }
+  #car-condition { height: 7px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.25); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  #car-condition-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #37c978, #7be495); }
+  #speed { position: absolute; right: 16px; bottom: 12px; font-size: 64px; font-weight: 900; line-height: 1; }
   #speed small { font-size: 16px; font-weight: 700; opacity: .8; }
 
-  #minimap { position: absolute; left: 14px; bottom: 14px; width: 240px; height: 240px; border: 2px solid rgba(255,255,255,.4); border-radius: 50%; background: #1d4e63; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
-  #minimap-label { position: absolute; left: 14px; bottom: 8px; width: 240px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 1px; background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 6px; }
+  #minimap { position: absolute; left: 14px; bottom: 32px; width: 240px; height: 240px; border: 2px solid rgba(255,255,255,.4); border-radius: 50%; background: #1d4e63; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+  #minimap-label { position: absolute; left: 14px; bottom: 26px; width: 240px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 1px; background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 6px; }
+  /* Respect bar under the minimap, like the reference's RESPECT meter. */
+  #respect { position: absolute; left: 14px; bottom: 8px; width: 240px; }
+  #respect-label { font-size: 10px; letter-spacing: 2px; font-weight: 800; opacity: .85; margin-bottom: 2px; }
+  #respect-bar { height: 8px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.3); border-radius: 4px; overflow: hidden; }
+  #respect-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ff9a3c, #ffd23b); }
 
   /* Dialogue / subtitle bar with a character card, bottom-centre like the
      reference: portrait + name + role, text beside it. */
@@ -113,6 +141,14 @@
   #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
 
   #damage { position: fixed; inset: 0; pointer-events: none; box-shadow: inset 0 0 90px 30px rgba(220,30,30,.55); }
+
+  /* Full-screen city map (Tab): the same city as the minimap, big enough
+     to read districts and the mission target — like the reference's map
+     screen. The world freezes while it is open. */
+  #map-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(6,10,20,.92); z-index: 5; }
+  #map-title { font-family: 'Anton', 'Arial Black', sans-serif; font-size: 34px; letter-spacing: 3px; color: #ffd23b; font-style: italic; text-shadow: -2px -2px 0 #111, 2px -2px 0 #111, -2px 2px 0 #111, 2px 2px 0 #111, 0 4px 0 #7a2e0e; }
+  #bigmap { width: min(720px, 92vmin); height: min(720px, 92vmin); border: 2px solid rgba(255,255,255,.35); border-radius: 12px; background: #1d4e63; }
+  #map-hint { font-size: 13px; opacity: .8; color: #eef1f5; }
 
   /* ---- Screens ---- */
   .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #eef1f5; background: linear-gradient(180deg, rgba(8,12,24,.10) 0%, rgba(8,12,24,.42) 78%); }
@@ -147,6 +183,8 @@
     <div id="mission-chapter"></div>
     <div id="mission-title"></div>
     <div id="mission-objective"></div>
+    <div id="mission-sub"></div>
+    <div id="mission-stage" class="hidden"><span id="mission-stage-label"></span><div id="mission-stage-bar"><div id="mission-stage-fill"></div></div></div>
     <div id="mission-next"></div>
   </div>
   <div id="dispatch" class="hidden">
@@ -158,14 +196,22 @@
     <div id="money">$250</div>
     <div id="wanted-label">WANTED</div>
     <div id="wanted">☆☆☆☆☆</div>
+    <div id="wanted-state" class="safe">○ AMAN</div>
+    <div id="weapon-row">
+      <span class="weapon-chip active" id="chip-fists"><svg viewBox="0 0 24 16" width="18" height="12" aria-hidden="true"><rect x="1" y="4" width="10" height="10" rx="2" fill="currentColor" /><rect x="13" y="4" width="10" height="10" rx="2" fill="currentColor" /></svg>TINJU</span>
+      <span class="weapon-chip" id="chip-pistol"><svg viewBox="0 0 24 16" width="18" height="12" aria-hidden="true"><path d="M1 2h20v4h-8l-1.5 8H8l1.5-8H1z" fill="currentColor" /></svg><span id="chip-pistol-label">PISTOL 24</span></span>
+    </div>
   </div>
   <div id="objective"></div>
   <canvas id="minimap" width="240" height="240"></canvas>
   <div id="minimap-label">Solmar Bay</div>
+  <div id="respect"><div id="respect-label">RESPECT <span id="respect-value">0</span></div><div id="respect-bar"><div id="respect-fill"></div></div></div>
   <div id="radio">
     <div id="radio-station">SOLMAR FM 101.9</div>
     <div id="radio-track">Ombak Senja — Lumen Kids</div>
+    <div id="radio-eq"><i></i><i></i><i></i><i></i><i></i></div>
     <div id="radio-car"></div>
+    <div id="car-condition"><div id="car-condition-fill"></div></div>
   </div>
   <div id="speed"></div>
   <div id="dialogue" class="hidden">
@@ -185,6 +231,12 @@
   <div id="crosshair" class="hidden"></div>
 </div>
 <div id="damage" class="hidden"></div>
+
+<div id="map-screen" class="hidden">
+  <div id="map-title">SOLMAR BAY — PETA KOTA</div>
+  <canvas id="bigmap" width="720" height="720"></canvas>
+  <div id="map-hint">Tab — tutup peta &nbsp;·&nbsp; M — mulai misi &nbsp;·&nbsp; P — jeda</div>
+</div>
 
 <div id="screen-title" class="screen">
   <h1 class="game-title">ASHBOELPUNKS</h1>

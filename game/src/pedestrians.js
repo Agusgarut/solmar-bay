@@ -126,7 +126,7 @@ export function createPedestrians(scene, rng) {
     scene.add(model);
     const ped = {
       model,
-      x: 335 + rng() * 20,
+      x: 327 + rng() * 14,
       z: range(rng, -320, 320),
       heading: rng() < 0.5 ? 0 : Math.PI,
       speed: range(rng, 1.0, 1.8),

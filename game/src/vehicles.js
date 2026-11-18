@@ -9,10 +9,10 @@ import { pick } from './random.js';
 
 export const CAR_TYPES = {
   sedan: { length: 4.4, width: 1.9, accel: 1.0, top: 1.0, color: 0xc23b2e, label: 'Solmar Sedan' },
-  coupe: { length: 4.1, width: 1.85, accel: 1.15, top: 1.12, color: 0xff3b30, label: 'Vespera GT' },
+  coupe: { length: 4.1, width: 1.85, accel: 1.15, top: 1.12, color: 0xff3b30, label: 'Bayfront GT' },
   taxi: { length: 4.4, width: 1.9, accel: 0.95, top: 0.95, color: 0xe8b93b, label: 'Taksi Kuning' },
   van: { length: 5.2, width: 2.1, accel: 0.8, top: 0.85, color: 0x7a7f85, label: 'Van Kargo' },
-  sport: { length: 4.2, width: 1.95, accel: 1.35, top: 1.25, color: 0xff2e88, label: 'Vespera GT' },
+  sport: { length: 4.2, width: 1.95, accel: 1.35, top: 1.25, color: 0xff2e88, label: 'Solmar GT' },
   muscle: { length: 4.6, width: 2.0, accel: 1.25, top: 1.18, color: 0xff7a1a, label: 'Banteng GT' },
   pickup: { length: 5.0, width: 2.0, accel: 0.9, top: 0.95, color: 0x2ea8a0, label: 'Pikap Pantai' },
   convertible: { length: 4.2, width: 1.95, accel: 1.2, top: 1.15, color: 0xff7a1a, label: 'Solmar Cabrio' },

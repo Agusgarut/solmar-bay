@@ -80,6 +80,8 @@ const ctx = {
   timeOfDay: GOLDEN_HOUR,
   timeBase: GOLDEN_HOUR, // timeOfDay advances from here; staging can set the hour
   state: 'title',
+  mapOpen: false, // full-screen map (Tab) freezes the world while open
+  lastMapState: null, // latest minimap state, reused to draw the big map
   setState(next) {
     ctx.state = next;
   },
@@ -376,11 +378,22 @@ function updateGame(dt, scripted) {
 
   // HUD + minimap.
   const missionTarget = missions.current ? missions.objectiveSpot(missions.currentObjective()) : null;
+  const mapState = {
+    playerX: player.x,
+    playerZ: player.z,
+    heading: player.heading,
+    trafficCars: traffic.cars,
+    copCars: police.copCars,
+    missionTarget,
+  };
+  ctx.lastMapState = mapState;
   hud.update({
     health: player.health,
     armor: player.armor,
     money: save.money,
     wanted: police.wanted,
+    // Respect: jobs done + heat earned, like the reference's meter.
+    respect: Math.min(100, save.missionsDone * 12 + Math.max(save.bestWanted, police.wanted) * 8),
     speed: player.inCar ? player.inCar.speed : 0,
     inCar: !!player.inCar,
     objective: missions.objectiveText(),
@@ -400,14 +413,7 @@ function updateGame(dt, scripted) {
   minimapTimer -= dt;
   if (minimapTimer <= 0) {
     minimapTimer = 0.15;
-    minimap.draw({
-      playerX: player.x,
-      playerZ: player.z,
-      heading: player.heading,
-      trafficCars: traffic.cars,
-      copCars: police.copCars,
-      missionTarget,
-    });
+    minimap.draw(mapState);
   }
 
   // Camera follows the player (or the car). The field of view widens with
@@ -472,6 +478,11 @@ function frame(now) {
     return;
   }
   // Play: fixed steps.
+  // Full-screen map (Tab): the world freezes, only the scene renders.
+  if (ctx.mapOpen) {
+    renderer.render(scene, camera);
+    return;
+  }
   accumulator += dt;
   while (accumulator >= STEP) {
     updateGame(STEP, null);
@@ -506,6 +517,15 @@ function runShot(name) {
   } else if (staged.cameraPose) {
     camera.position.set(...staged.cameraPose.pos);
     camera.lookAt(...staged.cameraPose.look);
+  }
+  if (name === 'mission' && ctx.missions.current) {
+    // The staged sim runs synchronously for ~4-5 s of real time in
+    // swiftshader, so the banner (4.2 s) and intro dialogue (5 s) shown
+    // by startMission expire before the frame is painted. Show them again
+    // now, fresh, so the mission shot reads like the game does.
+    const cm = ctx.missions.current.mission;
+    ctx.hud.showMissionBanner(`MISI ${ctx.missions.current.index + 1} — ${cm.title}`, cm.briefing, 10);
+    if (cm.intro) ctx.hud.showDialogue(cm.intro.speaker, cm.intro.line, 8);
   }
   if (name === 'drive' || name === 'chase') {
     // Put two police cars ahead of the player, facing them, so the chase
@@ -542,6 +562,10 @@ function runShot(name) {
     if (name === 'chase') {
       const car = ctx.player.inCar;
       ctx.police.placeHeli(car.heading, car.x, car.z, 28, 60);
+      // Upper-LEFT of the frame, like the reference: east is screen-left
+      // when looking south down the beach road.
+      const heli = ctx.police.heli;
+      if (heli) heli.group.position.x += 22;
     }
   }
   // Settle the sun, sky, fog and lamps for the staged hour: the title shot
@@ -571,5 +595,20 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'KeyM' && !event.repeat && ctx.state === 'play') {
     startNextMission();
+  }
+  // Tab toggles the full-screen map; the world freezes while it is open.
+  // The fallback state covers the first frame after starting, when no
+  // minimap frame has run yet — the map still draws instead of opening
+  // blank.
+  if (event.code === 'Tab' && !event.repeat && ctx.state === 'play') {
+    event.preventDefault();
+    ctx.mapOpen = !ctx.mapOpen;
+    document.getElementById('map-screen').classList.toggle('hidden', !ctx.mapOpen);
+    if (ctx.mapOpen) {
+      minimap.drawBig(ctx.lastMapState || {
+        playerX: player.x, playerZ: player.z, heading: player.heading,
+        trafficCars: traffic.cars, copCars: police.copCars, missionTarget: null,
+      });
+    }
   }
 });

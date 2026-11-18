@@ -34,6 +34,10 @@ export function createHud() {
   const missionChapter = document.getElementById('mission-chapter');
   const missionTitle = document.getElementById('mission-title');
   const missionObjective = document.getElementById('mission-objective');
+  const missionSub = document.getElementById('mission-sub');
+  const missionStage = document.getElementById('mission-stage');
+  const missionStageLabel = document.getElementById('mission-stage-label');
+  const missionStageFill = document.getElementById('mission-stage-fill');
   const missionNext = document.getElementById('mission-next');
   const dispatchEl = document.getElementById('dispatch');
   const dispatchRows = document.getElementById('dispatch-rows');
@@ -42,6 +46,14 @@ export function createHud() {
   const radioTrack = document.getElementById('radio-track');
   const radioCar = document.getElementById('radio-car');
   const minimapLabel = document.getElementById('minimap-label');
+  const respectFill = document.getElementById('respect-fill');
+  const respectValue = document.getElementById('respect-value');
+  const wantedState = document.getElementById('wanted-state');
+  const chipFists = document.getElementById('chip-fists');
+  const chipPistol = document.getElementById('chip-pistol');
+  const chipPistolLabel = document.getElementById('chip-pistol-label');
+  const carCondition = document.getElementById('car-condition');
+  const carConditionFill = document.getElementById('car-condition-fill');
   const dialogueEl = document.getElementById('dialogue');
   const dialogueAvatar = document.getElementById('dialogue-avatar');
   const dialogueSpeaker = document.getElementById('dialogue-speaker');
@@ -113,13 +125,14 @@ export function createHud() {
       briefingTimer = window.setTimeout(() => briefingEl.classList.add('hidden'), 7000);
     },
     // Big centre banner when a mission starts: MISI 1 — KURIR PAGI.
-    showMissionBanner(title, text) {
+    // `seconds` lets the screenshot staging hold it longer than gameplay.
+    showMissionBanner(title, text, seconds) {
       bannerIndex.textContent = title.split('—')[0].trim();
       bannerTitle.textContent = title.split('—')[1] ? title.split('—')[1].trim() : title;
       bannerText.textContent = text;
       bannerEl.classList.remove('hidden');
       if (bannerTimer) window.clearTimeout(bannerTimer);
-      bannerTimer = window.setTimeout(() => bannerEl.classList.add('hidden'), 4200);
+      bannerTimer = window.setTimeout(() => bannerEl.classList.add('hidden'), (seconds || 4.2) * 1000);
     },
     // Dialogue subtitle with a character card, bottom-centre.
     showDialogue(speaker, text, seconds) {
@@ -161,6 +174,19 @@ export function createHud() {
       for (let i = 0; i < 5; i += 1) stars += i < state.wanted ? '★' : '☆';
       wantedEl.textContent = stars;
       wantedEl.classList.toggle('hot', state.wanted > 0);
+      // Wanted state line, like the reference's "IN SIGHT" under the stars.
+      if (state.wanted > 0) {
+        wantedState.textContent = '● TERLIHAT';
+        wantedState.classList.remove('safe');
+      } else {
+        wantedState.textContent = '○ AMAN';
+        wantedState.classList.add('safe');
+      }
+      // Weapon chips under the stars: the equipped weapon is highlighted.
+      const hasPistol = state.weapon && state.weapon.name === 'pistol';
+      chipFists.classList.toggle('active', !hasPistol);
+      chipPistol.classList.toggle('active', !!hasPistol);
+      chipPistolLabel.textContent = `PISTOL ${state.weapon ? state.weapon.ammo : 0}`;
       // Weapon slot, GTA-style: name + ammo, on foot only.
       if (!state.inCar && state.weapon) {
         weaponEl.textContent = state.weapon.name === 'pistol'
@@ -193,6 +219,15 @@ export function createHud() {
         missionChapter.textContent = mission.chapter || '';
         missionTitle.textContent = mission.title;
         missionObjective.textContent = mission.objective;
+        missionSub.textContent = mission.sub || '';
+        // Stage bar, like the reference's "STAGE 4/4" meter.
+        if (mission.stageTotal > 0) {
+          missionStage.classList.remove('hidden');
+          missionStageLabel.textContent = `STAGE ${mission.stage}/${mission.stageTotal}`;
+          missionStageFill.style.width = `${(mission.stage / mission.stageTotal) * 100}%`;
+        } else {
+          missionStage.classList.add('hidden');
+        }
         missionNext.textContent = mission.next || '';
       } else if (next) {
         missionIndex.textContent = 'BERIKUTNYA';
@@ -201,6 +236,8 @@ export function createHud() {
         missionChapter.textContent = next.chapter || '';
         missionTitle.textContent = next.title;
         missionObjective.textContent = next.objective;
+        missionSub.textContent = '';
+        missionStage.classList.add('hidden');
         missionNext.textContent = next.next || '';
       } else {
         missionIndex.textContent = 'SELESAI';
@@ -209,6 +246,8 @@ export function createHud() {
         missionChapter.textContent = 'SOLMAR BAY';
         missionTitle.textContent = 'Legenda Solmar Bay';
         missionObjective.textContent = 'Semua misi selesai! Kamu legenda kota ini.';
+        missionSub.textContent = '';
+        missionStage.classList.add('hidden');
         missionNext.textContent = '';
       }
       // Police dispatch list, only while wanted.
@@ -248,6 +287,17 @@ export function createHud() {
         radioTrack.textContent = state.radio.track;
       }
       radioCar.textContent = state.vehicle ? `${state.vehicle.name} · Kondisi ${Math.max(0, Math.round(state.vehicle.condition))}%` : '';
+      // Condition bar under the car name, like the reference's CONDITION meter.
+      if (state.vehicle) {
+        carCondition.classList.remove('hidden');
+        carConditionFill.style.width = `${Math.max(0, Math.min(100, state.vehicle.condition))}%`;
+      } else {
+        carCondition.classList.add('hidden');
+      }
+      // Respect meter under the minimap: jobs done + heat earned.
+      const respect = Math.max(0, Math.min(100, state.respect || 0));
+      respectFill.style.width = `${respect}%`;
+      respectValue.textContent = `${respect}`;
       // Red flash when the player just took damage.
       if (state.health < lastHealth) {
         damageEl.classList.remove('hidden');

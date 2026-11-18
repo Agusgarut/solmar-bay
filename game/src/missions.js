@@ -273,12 +273,17 @@ export function createMissions(scene) {
       const objective = currentObjective();
       if (!current || !objective) return null;
       const next = current.mission.objectives[current.objectiveIndex + 1];
+      // Timer as m:ss, like the reference's "2:06" countdown.
+      const fmt = (s) => {
+        const v = Math.max(0, Math.ceil(s));
+        return `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
+      };
       let timer = '';
-      if (objective.type === 'race') timer = `${Math.max(0, Math.ceil(objective.time - objectiveTimer))} dtk`;
-      if (objective.type === 'survive') timer = `${Math.ceil(objective.seconds - surviveTimer)} dtk`;
+      if (objective.type === 'race') timer = fmt(objective.time - objectiveTimer);
+      if (objective.type === 'survive') timer = fmt(objective.seconds - surviveTimer);
       let progress = '';
-      if (objective.type === 'race') progress = `${raceIndex}/${objective.spots.length}`;
-      if (objective.type === 'kill') progress = `${killCount}/${objective.count}`;
+      if (objective.type === 'race') progress = `${raceIndex}/${objective.spots.length} titik`;
+      if (objective.type === 'kill') progress = `${killCount}/${objective.count} musuh`;
       return {
         index: current.index + 1,
         total: MISSIONS.length,
@@ -288,6 +293,11 @@ export function createMissions(scene) {
         next: next ? `NEXT: ${next.text}` : 'Terakhir — selesaikan!',
         timer,
         progress,
+        // Stage = which objective of this mission, like the reference's
+        // "STAGE 4/4" bar.
+        stage: current.objectiveIndex + 1,
+        stageTotal: current.mission.objectives.length,
+        sub: progress,
         reward: current.mission.reward,
       };
     },
@@ -305,6 +315,9 @@ export function createMissions(scene) {
         next: `Hadiah $${mission.reward.toLocaleString('en-US')}`,
         timer: '',
         progress: '',
+        stage: 0,
+        stageTotal: 0,
+        sub: '',
         reward: mission.reward,
       };
     },

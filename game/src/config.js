@@ -9,6 +9,11 @@ export const ROAD_WIDTH = 14;
 export const ROAD_POSITIONS = [-315, -225, -135, -45, 45, 135, 225, 315];
 export const BEACH_X = 300; // sand starts here, water further east
 export const WATER_X = 360;
+// Round 6: the beach is NARROWER so the sea sits close to the road —
+// sand 322..348, waterline at 348, so the ocean fills the left of the
+// frame when driving south down Ocean boulevard instead of a thin strip.
+export const SAND_X0 = 322;
+export const WATERLINE_X = 348;
 
 // Traffic & crowd density: the streets must read busy, like the entries
 // on the feed — cars close together on the main roads, people on every

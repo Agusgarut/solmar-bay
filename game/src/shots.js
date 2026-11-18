@@ -81,8 +81,10 @@ export function stageShot(name, ctx) {
     ctx.scene.add(model);
     const car = new Car(model, type);
     car.driver = 'player';
-    // Right-hand lane, not the centre line.
-    car.place(spawn.x + rx * -3.5, spawn.z + rz * -3.5, spawn.heading);
+    // EAST (sea-side) lane on the beach road: the camera sits closer to
+    // the water, so the ocean fills the left of the frame — like the
+    // reference's coastal drive — instead of 78 m of sand in between.
+    car.place(spawn.x + rx * 3.5, spawn.z + rz * 3.5, spawn.heading);
     // The chase starts already rolling fast: its sim is shorter, so the
     // car needs a higher starting speed to be at full pace in the frame.
     car.speed = name === 'chase' ? 24 : 18;
@@ -120,25 +122,26 @@ export function stageShot(name, ctx) {
       ctx.scene.add(m);
       const staged = new Car(m, typeName);
       staged.driver = 'traffic';
-      // Same-direction lane faces away; the oncoming lane faces the player.
-      staged.place(p.x, p.z, side < 0 ? spawn.heading : spawn.heading + Math.PI);
+      // Same-direction lane (east, sea side) faces away; the oncoming lane
+      // (west) faces the player.
+      staged.place(p.x, p.z, side > 0 ? spawn.heading : spawn.heading + Math.PI);
       staged.speed = 13;
       staged.targetSpeed = 13;
       ctx.traffic.cars.push(staged);
     };
-    stageCar(55, -3.5, 'convertible', 0xffe14f);
-    stageCar(78, -3.5, 'sedan', 0xff2e88);
-    stageCar(102, -3.5, 'taxi', 0xe8b93b);
-    stageCar(128, -3.5, 'sport', 0x2ec4b6);
-    stageCar(155, -3.5, 'sport', 0xff2e88);
-    stageCar(180, -3.5, 'coupe', 0x2e6fc2);
-    stageCar(65, 3.5, 'sedan', 0xd8d8d8);
-    stageCar(95, 3.5, 'muscle', 0xff7a1a);
-    stageCar(125, 3.5, 'coupe', 0xffe14f);
-    stageCar(140, 3.5, 'truck', 0x2ec4b6);
-    stageCar(170, 3.5, 'van', 0xd8d8d8);
-    stageCar(200, 3.5, 'sedan', 0xff3b30);
-    stageCar(225, 3.5, 'pickup', 0xff7a1a);
+    stageCar(55, 3.5, 'convertible', 0xffe14f);
+    stageCar(78, 3.5, 'sedan', 0xff2e88);
+    stageCar(102, 3.5, 'taxi', 0xe8b93b);
+    stageCar(128, 3.5, 'sport', 0x2ec4b6);
+    stageCar(155, 3.5, 'sport', 0xff2e88);
+    stageCar(180, 3.5, 'coupe', 0x2e6fc2);
+    stageCar(65, -3.5, 'sedan', 0xd8d8d8);
+    stageCar(95, -3.5, 'muscle', 0xff7a1a);
+    stageCar(125, -3.5, 'coupe', 0xffe14f);
+    stageCar(140, -3.5, 'truck', 0x2ec4b6);
+    stageCar(170, -3.5, 'van', 0xd8d8d8);
+    stageCar(200, -3.5, 'sedan', 0xff3b30);
+    stageCar(225, -3.5, 'pickup', 0xff7a1a);
     // Parked cars along the beachfront kerb: the street is never empty.
     const parkCar = (x, z, heading, typeName, color) => {
       const m = createCarModel(typeName, color, ctx.rng);
@@ -162,7 +165,8 @@ export function stageShot(name, ctx) {
         p = ahead(15 + i * 13, i % 2 === 0 ? -10.5 : 10.5);
         ped.heading = spawn.heading;
       } else if (i < 11) {
-        p = ahead(30 + (i - 8) * 28, 26 + (i - 8) * 9);
+        // Strolling the NARROW sand (322..348), not the old 78 m beach.
+        p = ahead(30 + (i - 8) * 28, 18 + (i - 8) * 4);
         ped.heading = spawn.heading;
       } else {
         // Crossing the beach road at the next intersection.
