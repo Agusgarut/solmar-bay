@@ -3,10 +3,11 @@
 // police chases nearby. Hitting one is a crime — the wanted system notices.
 
 import * as THREE from 'three';
-import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, clamp, distance2D } from './config.js';
+import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, PEDESTRIANS, clamp, distance2D } from './config.js';
 import { pick, range } from './random.js';
 
-const SHIRT_COLORS = [0xd8d8d8, 0xc23b2e, 0x2e6fc2, 0x3a9e5f, 0xe8b93b, 0x8a4fc2, 0x22252a, 0xd81e5b];
+// Bright shirts, so the sidewalks read busy and colourful at a glance.
+const SHIRT_COLORS = [0xff2e88, 0xffe14f, 0x2ec4b6, 0xd8d8d8, 0xc23b2e, 0x2e6fc2, 0x3a9e5f, 0xe8b93b, 0x8a4fc2, 0x22252a, 0xff7a1a];
 
 function createPedModel(rng) {
   const group = new THREE.Group();
@@ -61,7 +62,7 @@ export function createPedestrians(scene, rng) {
     return ped;
   }
 
-  for (let i = 0; i < 60; i += 1) spawn();
+  for (let i = 0; i < PEDESTRIANS; i += 1) spawn();
 
   // A few people sit on the park benches instead of walking: legs bent,
   // still, watching the street go by.

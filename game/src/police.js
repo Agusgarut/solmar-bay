@@ -203,8 +203,8 @@ export function createPolice(scene, rng) {
       for (const car of copCars) {
         const bar = car.model.userData.lightBar;
         if (!bar) continue;
-        bar.redMat.emissiveIntensity = flashRed ? 2.6 : 0.15;
-        bar.blueMat.emissiveIntensity = flashRed ? 0.15 : 2.6;
+        bar.redMat.emissiveIntensity = flashRed ? 3.0 : 0.2;
+        bar.blueMat.emissiveIntensity = flashRed ? 0.2 : 3.0;
       }
 
       // Helicopter at 3+ stars: circles the player, rotor spinning, and

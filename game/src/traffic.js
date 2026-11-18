@@ -3,14 +3,14 @@
 // random intersection, and slows when another car is right ahead.
 
 import * as THREE from 'three';
-import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, clamp, distance2D } from './config.js';
+import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, TRAFFIC_CARS, PARKED_CARS, clamp, distance2D } from './config.js';
 import { createCarModel, Car } from './vehicles.js';
 import { pick, range, weighted } from './random.js';
 
 // Traffic mix by weight: sedans and taxis dominate, sports are rare.
 const TRAFFIC_MIX = [
   ['sedan', 3], ['coupe', 2], ['taxi', 2], ['van', 1],
-  ['sport', 1], ['muscle', 1], ['pickup', 1],
+  ['sport', 2], ['muscle', 2], ['pickup', 1],
 ];
 const TRAFFIC_TYPES = TRAFFIC_MIX.map(([type]) => type);
 const TRAFFIC_SPEED = 13;
@@ -19,23 +19,37 @@ export function createTraffic(scene, rng, city) {
   const cars = [];
   const parked = [];
 
-  function spawnTrafficCar() {
+  function spawnTrafficCar(preset) {
     const type = weighted(rng, TRAFFIC_MIX);
     const model = createCarModel(type, undefined, rng);
     scene.add(model);
     const car = new Car(model, type);
     car.driver = 'traffic';
-    // Start on a random road, heading along it.
-    const along = Math.random() < 0.5;
-    const road = pick(rng, ROAD_POSITIONS);
-    const t = range(rng, -WORLD_HALF + 30, WORLD_HALF - 30);
-    const dir = rng() < 0.5 ? 1 : -1;
+    // Start on a random road, heading along it — or on a preset road and
+    // lane when a platoon is being built.
+    const along = preset ? preset.along : Math.random() < 0.5;
+    const road = preset ? preset.road : pick(rng, ROAD_POSITIONS);
+    const t = preset ? preset.t : range(rng, -WORLD_HALF + 30, WORLD_HALF - 30);
+    const dir = preset ? preset.dir : rng() < 0.5 ? 1 : -1;
     if (along) car.place(t, road + (dir > 0 ? 3.5 : -3.5), dir > 0 ? Math.PI / 2 : -Math.PI / 2);
     else car.place(road + (dir > 0 ? -3.5 : 3.5), t, dir > 0 ? 0 : Math.PI);
     car.speed = TRAFFIC_SPEED * range(rng, 0.8, 1.1);
     car.targetSpeed = car.speed;
     cars.push(car);
     return car;
+  }
+
+  // Platoons: clusters of 3-4 cars bumper to bumper on the same road and
+  // lane, so the streets read busy instead of one lonely car per block.
+  function spawnPlatoon() {
+    const along = Math.random() < 0.5;
+    const road = pick(rng, ROAD_POSITIONS);
+    const dir = rng() < 0.5 ? 1 : -1;
+    const t0 = range(rng, -WORLD_HALF + 120, WORLD_HALF - 120);
+    const n = 3 + Math.floor(rng() * 2);
+    for (let i = 0; i < n; i += 1) {
+      spawnTrafficCar({ along, road, dir, t: t0 - dir * i * range(rng, 12, 18) });
+    }
   }
 
   function spawnParkedCar() {
@@ -55,8 +69,9 @@ export function createTraffic(scene, rng, city) {
     return car;
   }
 
-  for (let i = 0; i < 36; i += 1) spawnTrafficCar();
-  for (let i = 0; i < 20; i += 1) spawnParkedCar();
+  for (let i = 0; i < 12; i += 1) spawnPlatoon();
+  for (let i = 0; i < TRAFFIC_CARS - 40; i += 1) spawnTrafficCar();
+  for (let i = 0; i < PARKED_CARS; i += 1) spawnParkedCar();
 
   function nearestRoadCoord(value) {
     let best = ROAD_POSITIONS[0];

@@ -42,9 +42,10 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // Filmic tone mapping: golden-hour sunsets get warm highlights instead of
-// blown-out white, and neon reads at dusk.
+// blown-out white, and neon reads at dusk. Exposure is high on purpose:
+// the game should read bright and sunny, like the entries on the feed.
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.28;
+renderer.toneMappingExposure = 1.45;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87bfe8);
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1500);
@@ -517,6 +518,23 @@ function runShot(name) {
       // The helicopter hangs ahead in the sky, in the frame: straight down
       // the street corridor so the towers on both sides can't hide it.
       if (name === 'chase') ctx.police.placeHeli(car.heading, car.x, car.z, 35, 60);
+    }
+    // One last game step after posing the police: the HUD (dispatch
+    // distances, speed) was last updated during the sim, before the cops
+    // were moved into the frame — refresh it so the panel matches the shot.
+    updateGame(STEP, {
+      actions: 0,
+      move: { forward: 0, strafe: 0, run: false },
+      throttle: 0,
+      steer: 0,
+      jump: false,
+    });
+    // That step lets police.update drag the helicopter back to its high
+    // orbit (52 m, above the frame), so pose it again — low and far down
+    // the street corridor, where the camera can actually see it.
+    if (name === 'chase') {
+      const car = ctx.player.inCar;
+      ctx.police.placeHeli(car.heading, car.x, car.z, 28, 60);
     }
   }
   // Settle the sun, sky, fog and lamps for the staged hour: the title shot

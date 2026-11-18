@@ -10,6 +10,13 @@ export const ROAD_POSITIONS = [-315, -225, -135, -45, 45, 135, 225, 315];
 export const BEACH_X = 300; // sand starts here, water further east
 export const WATER_X = 360;
 
+// Traffic & crowd density: the streets must read busy, like the entries
+// on the feed — cars close together on the main roads, people on every
+// sidewalk.
+export const TRAFFIC_CARS = 64;
+export const PARKED_CARS = 28;
+export const PEDESTRIANS = 110;
+
 // Player / on-foot tuning.
 export const WALK_SPEED = 6;
 export const RUN_SPEED = 11;
@@ -61,20 +68,22 @@ export function districtAt(x, z) {
   return 'Solmar Bay';
 }
 
-// Sun-soaked palette: warm sand, teal water, terracotta roofs.
+// Sun-soaked palette: bright golden-hour sky, warm sand, teal water,
+// terracotta roofs — the game should read as a bright afternoon in the
+// sun, not a dim dusk.
 export const PALETTE = {
   skyDay: 0x87bfe8,
-  skySunset: 0xff9a5c,
+  skySunset: 0xffb070,
   skyNight: 0x0e1a33,
-  skyGolden: 0xffb066,
+  skyGolden: 0xffc27a,
   fogDay: 0xa8c8e0,
-  fogSunset: 0xffc49a,
-  sunDisc: 0xffd27a,
+  fogSunset: 0xffd0a0,
+  sunDisc: 0xffe9a8,
   water: 0x2e7f9e,
   sand: 0xe8d29a,
-  grass: 0x5d8a4a,
-  asphalt: 0x3a3d42,
-  sidewalk: 0x9a9a92,
+  grass: 0x7d9a62,
+  asphalt: 0x6b5648,
+  sidewalk: 0xb0a894,
   buildingGlass: 0x9fc4d8,
 };
 

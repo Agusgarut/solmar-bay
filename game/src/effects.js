@@ -6,6 +6,23 @@ import * as THREE from 'three';
 
 const MAX_PARTICLES = 320;
 
+// Soft round sprite for the points: without an alpha map the points render
+// as hard white squares, and a dust trail reads as a row of boxes.
+function makeSoftDotTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const g = canvas.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
+}
+
 export function createEffects(scene) {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(MAX_PARTICLES * 3);
@@ -13,10 +30,11 @@ export function createEffects(scene) {
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const material = new THREE.PointsMaterial({
-    size: 0.7,
+    size: 1.1,
+    map: makeSoftDotTexture(),
     vertexColors: true,
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.55,
     depthWrite: false,
   });
   const points = new THREE.Points(geometry, material);

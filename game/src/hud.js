@@ -56,6 +56,26 @@ export function createHud() {
   let lastHealth = 100;
   let lastDispatchKey = '';
 
+  // Character portraits: a simple low-poly face drawn as inline SVG, one
+  // palette per character, so the dialogue card shows a face, not a letter.
+  const PORTRAITS = {
+    Rico: { skin: '#c98a5f', hair: '#1c1410', shirt: '#ff5e8a', bg: '#5e2a3a' },
+    Zara: { skin: '#e8b88a', hair: '#3a2a1a', shirt: '#2ec4b6', bg: '#123f3a' },
+    Beni: { skin: '#8a5a38', hair: '#101010', shirt: '#ff7a1a', bg: '#4a2c12' },
+    Dani: { skin: '#c98a5f', hair: '#1c1410', shirt: '#2e6fc2', bg: '#1c2f4a' },
+  };
+  function portraitSvg(speaker) {
+    const p = PORTRAITS[speaker] || { skin: '#c98a5f', hair: '#333333', shirt: '#8a4fc2', bg: '#2a2a3a' };
+    return `<svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">`
+      + `<rect width="44" height="44" fill="${p.bg}"/>`
+      + `<path d="M6 44 Q10 28 22 28 Q34 28 38 44 Z" fill="${p.shirt}"/>`
+      + `<circle cx="22" cy="20" r="10" fill="${p.skin}"/>`
+      + `<path d="M12 18 Q12 8 22 8 Q32 8 32 18 Q32 12 22 12 Q12 12 12 18 Z" fill="${p.hair}"/>`
+      + `<circle cx="18" cy="20" r="1.4" fill="#141414"/><circle cx="26" cy="20" r="1.4" fill="#141414"/>`
+      + `<path d="M18 26 Q22 29 26 26" stroke="#141414" stroke-width="1.4" fill="none" stroke-linecap="round"/>`
+      + `</svg>`;
+  }
+
   function showOnly(screen) {
     screenTitle.classList.toggle('hidden', screen !== 'title');
     screenPause.classList.toggle('hidden', screen !== 'pause');
@@ -92,7 +112,7 @@ export function createHud() {
     },
     // Dialogue subtitle with a character card, bottom-centre.
     showDialogue(speaker, text, seconds) {
-      dialogueAvatar.textContent = speaker ? speaker.charAt(0).toUpperCase() : '?';
+      dialogueAvatar.innerHTML = portraitSvg(speaker);
       dialogueSpeaker.textContent = speaker || '';
       dialogueText.textContent = text;
       dialogueEl.classList.remove('hidden');
@@ -167,7 +187,8 @@ export function createHud() {
             const row = document.createElement('div');
             row.className = 'dispatch-row';
             const statusClass = d.status === 'RAMMING' || d.status === 'ROADBLOCK'
-              ? 'dispatch-status ramming' : d.status === 'AIR SUPPORT' ? 'dispatch-status air' : 'dispatch-status';
+              ? 'dispatch-status ramming' : d.status === 'AIR SUPPORT' ? 'dispatch-status air'
+              : d.status === 'FOOT' ? 'dispatch-status foot' : 'dispatch-status pursuit';
             row.innerHTML = `<span>${d.unit}</span><span class="dispatch-dist">${d.dist} m</span><span class="${statusClass}">${d.status}</span>`;
             dispatchRows.appendChild(row);
           }

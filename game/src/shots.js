@@ -19,10 +19,10 @@ const SPAWNS = {
 
 export function stageShot(name, ctx) {
   const spawn = SPAWNS[name] || SPAWNS.start;
-  // The staged hour: golden hour for every shot — sunset for the title,
-  // late sun for the drive, dusk for the mission, neon night for the chase.
+  // The staged hour: bright golden hour for every shot — the sun is still
+  // well up at 17.2-17.5, so every frame reads sunlit, like the reference.
   // updateGame advances time from timeBase, so set the base, not the clock.
-  ctx.timeBase = name === 'chase' ? 18.4 : name === 'start' ? 17.4 : name === 'mission' ? 17.9 : 17.6;
+  ctx.timeBase = name === 'start' ? 17.2 : 17.5;
   ctx.timeOfDay = ctx.timeBase;
   // Driving shots get a green light on their axis so the car is at speed,
   // not queued behind traffic stopped at a red light.
@@ -47,36 +47,82 @@ export function stageShot(name, ctx) {
   if (name === 'drive' || name === 'chase') {
     // Put Dani in a car and let them drive while the police close in.
     // The chase runs at 4 stars, so the helicopter is in the frame too.
-    const type = name === 'chase' ? 'sport' : 'coupe';
-    const model = createCarModel(type, name === 'chase' ? 0xd81e5b : 0x2e6fc2, ctx.rng);
+    // The hero car is hot pink in both shots: it has to pop against the
+    // sunset road, like the reference entries' pink sports car.
+    const type = 'sport';
+    const model = createCarModel(type, 0xff2e88, ctx.rng);
     ctx.scene.add(model);
     const car = new Car(model, type);
     car.driver = 'player';
     // Right-hand lane, not the centre line.
     car.place(spawn.x, spawn.z + 3.5, spawn.heading);
-    car.speed = 18;
+    // The chase starts already rolling fast: its sim is shorter, so the
+    // car needs a higher starting speed to be at full pace in the frame.
+    car.speed = name === 'chase' ? 24 : 18;
     ctx.traffic.parked.push(car);
     ctx.player.inCar = car;
     ctx.player.group.visible = false;
     ctx.police.setWanted(name === 'chase' ? 4 : 2);
-    // Clear a corridor ahead of the car so the shot is a clean run, not a
-    // traffic jam: any moving car on the player's road (or crossing it at
-    // an intersection) within 160 m ahead is towed out of the frame.
+    // Clear only the player's exact lane right ahead: cars in the other
+    // lane and further out stay in the frame, so the street reads busy.
     const fx = Math.sin(spawn.heading);
     const fz = Math.cos(spawn.heading);
     for (let i = ctx.traffic.cars.length - 1; i >= 0; i -= 1) {
       const c = ctx.traffic.cars[i];
       const along = (c.x - spawn.x) * fx + (c.z - spawn.z) * fz;
       const side = Math.abs((c.x - spawn.x) * fz - (c.z - spawn.z) * fx);
-      if (along > -10 && along < 160 && side < 9) {
+      if (along > -5 && along < 55 && side < 5.5) {
         ctx.scene.remove(c.model);
         ctx.traffic.cars.splice(i, 1);
       }
     }
-    // Short sim (1.6 s): the pursuit needs a moment to close in, but a
-    // longer run lets a cop that spawned ahead meet the car head-on and
-    // pin it to a crawl.
-    return { simulateSeconds: 1.6, throttle: 1, steer: 0, orbit: false };
+    // Stage a busy street: real traffic cars ahead in both lanes, placed
+    // far enough out that the player can't ram them during the short sim,
+    // close enough that the frame reads dense. Same-lane cars sit 60-140 m
+    // ahead (the player only closes ~29 m in the sim); oncoming cars
+    // 100-190 m (they close ~69 m, so they arrive right in the frame).
+    // That leaves cars at roughly 30-115 m ahead when the frame is taken.
+    const rx = Math.cos(spawn.heading);
+    const rz = -Math.sin(spawn.heading);
+    const ahead = (dist, side) => ({
+      x: spawn.x + fx * dist + rx * side,
+      z: spawn.z + fz * dist + rz * side,
+    });
+    const stageCar = (dist, side, typeName, color) => {
+      const p = ahead(dist, side);
+      const m = createCarModel(typeName, color, ctx.rng);
+      ctx.scene.add(m);
+      const staged = new Car(m, typeName);
+      staged.driver = 'traffic';
+      // Same-direction lane faces away; the oncoming lane faces the player.
+      staged.place(p.x, p.z, side < 0 ? spawn.heading : spawn.heading + Math.PI);
+      staged.speed = 13;
+      staged.targetSpeed = 13;
+      ctx.traffic.cars.push(staged);
+    };
+    stageCar(60, -3.5, 'sedan', 0xff2e88);
+    stageCar(85, -3.5, 'taxi', 0xe8b93b);
+    stageCar(115, -3.5, 'sport', 0x2ec4b6);
+    stageCar(140, -3.5, 'sport', 0xff2e88);
+    stageCar(100, 3.5, 'muscle', 0xff7a1a);
+    stageCar(130, 3.5, 'coupe', 0xffe14f);
+    stageCar(160, 3.5, 'van', 0xd8d8d8);
+    stageCar(190, 3.5, 'sedan', 0xff3b30);
+    // A few pedestrians on the sidewalks beside the car.
+    ctx.peds.peds.slice(0, 4).forEach((ped, i) => {
+      const p = ahead(15 + i * 14, i % 2 === 0 ? -10.5 : 10.5);
+      ped.x = p.x;
+      ped.z = p.z;
+      ped.heading = spawn.heading;
+      ped.model.position.set(p.x, 0, p.z);
+      ped.model.rotation.y = ped.heading;
+    });
+    // Short sim: the pursuit needs a moment to close in, but a longer run
+    // lets a cop that spawned ahead meet the car head-on and pin it to a
+    // crawl. The chase sim is even shorter (1.2 s) so the cops arrive in
+    // the frame before any of them can glue onto the player and ram his
+    // speed down.
+    return { simulateSeconds: name === 'chase' ? 1.2 : 1.6, throttle: 1, steer: 0, orbit: false };
   }
 
   // Mission: the port shootout, pistol out, guards ahead. Pull the guards

@@ -9,16 +9,16 @@ import { pick } from './random.js';
 
 export const CAR_TYPES = {
   sedan: { length: 4.4, width: 1.9, accel: 1.0, top: 1.0, color: 0xc23b2e, label: 'Solmar Sedan' },
-  coupe: { length: 4.1, width: 1.85, accel: 1.15, top: 1.12, color: 0x2e6fc2, label: 'Vespera GT' },
+  coupe: { length: 4.1, width: 1.85, accel: 1.15, top: 1.12, color: 0xff3b30, label: 'Vespera GT' },
   taxi: { length: 4.4, width: 1.9, accel: 0.95, top: 0.95, color: 0xe8b93b, label: 'Taksi Kuning' },
   van: { length: 5.2, width: 2.1, accel: 0.8, top: 0.85, color: 0x7a7f85, label: 'Van Kargo' },
-  sport: { length: 4.2, width: 1.95, accel: 1.35, top: 1.25, color: 0xd81e5b, label: 'Vespera GT' },
-  muscle: { length: 4.6, width: 2.0, accel: 1.25, top: 1.18, color: 0x3a3a3a, label: 'Banteng GT' },
-  pickup: { length: 5.0, width: 2.0, accel: 0.9, top: 0.95, color: 0x7a4a2a, label: 'Pikap Pantai' },
+  sport: { length: 4.2, width: 1.95, accel: 1.35, top: 1.25, color: 0xff2e88, label: 'Vespera GT' },
+  muscle: { length: 4.6, width: 2.0, accel: 1.25, top: 1.18, color: 0xff7a1a, label: 'Banteng GT' },
+  pickup: { length: 5.0, width: 2.0, accel: 0.9, top: 0.95, color: 0x2ea8a0, label: 'Pikap Pantai' },
   police: { length: 4.5, width: 1.95, accel: 1.2, top: 1.15, color: 0x1a1d22, label: 'SBPD Interceptor' },
 };
 
-const PAINT_COLORS = [0xc23b2e, 0x2e6fc2, 0xe8b93b, 0x3a9e5f, 0x8a4fc2, 0xd8d8d8, 0x22252a, 0xd81e5b, 0x3a3a3a, 0x7a4a2a];
+const PAINT_COLORS = [0xff2e88, 0xff3b30, 0xff7a1a, 0xffe14f, 0x2ec4b6, 0xc23b2e, 0x2e6fc2, 0xe8b93b, 0x3a9e5f, 0x8a4fc2, 0xd8d8d8, 0x22252a];
 
 function makeDoorTextTexture(text) {
   const canvas = document.createElement('canvas');
@@ -78,6 +78,17 @@ export function createCarModel(typeName, color, rng) {
       strut.position.set(side * (type.width / 2 - 0.35), 0.92, -type.length / 2 + 0.15);
       group.add(strut);
     }
+    // Two-tone white roof: the hero car reads bright from behind and
+    // above, not as a dark slab.
+    const whiteRoof = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.88, 0.06, type.length * 0.44), new THREE.MeshLambertMaterial({ color: 0xf2f2ee }));
+    whiteRoof.position.set(0, 1.5, -type.length * 0.05);
+    group.add(whiteRoof);
+    // Rear light strip: a glowing bar across the back, so the car reads
+    // from behind at dusk.
+    const stripMat = new THREE.MeshLambertMaterial({ color: 0xff5e8a, emissive: 0xff2e88, emissiveIntensity: 1.4 });
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.9, 0.14, 0.06), stripMat);
+    strip.position.set(0, 0.62, -type.length / 2 - 0.01);
+    group.add(strip);
   }
   if (typeName === 'muscle') {
     const scoop = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.16, 0.9), darkMat);
@@ -129,16 +140,22 @@ export function createCarModel(typeName, color, rng) {
     const pushBar = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.7, 0.3, 0.14), darkMat);
     pushBar.position.set(0, 0.5, type.length / 2 + 0.12);
     group.add(pushBar);
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.18, 0.4), darkMat);
-    bar.position.set(0, 1.5, -type.length * 0.05);
+    // White roof panel: the black-and-white livery reads from behind and
+    // above, so a police car is never just a black box.
+    const roofPanel = new THREE.Mesh(new THREE.BoxGeometry(type.width * 0.88, 0.06, type.length * 0.5), new THREE.MeshLambertMaterial({ color: 0xe8e8e8 }));
+    roofPanel.position.set(0, 1.5, -type.length * 0.05);
+    group.add(roofPanel);
+    // Oversized light bar: the red/blue flash has to read from 60 m away.
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.2, 0.46), darkMat);
+    bar.position.set(0, 1.56, -type.length * 0.05);
     group.add(bar);
-    const redMat = new THREE.MeshLambertMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 1 });
-    const blueMat = new THREE.MeshLambertMaterial({ color: 0x2244ff, emissive: 0x0022ff, emissiveIntensity: 1 });
-    const red = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.42), redMat);
-    red.position.set(-0.28, 1.5, -type.length * 0.05);
+    const redMat = new THREE.MeshLambertMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 1.6 });
+    const blueMat = new THREE.MeshLambertMaterial({ color: 0x2244ff, emissive: 0x0022ff, emissiveIntensity: 1.6 });
+    const red = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.26, 0.48), redMat);
+    red.position.set(-0.38, 1.56, -type.length * 0.05);
     group.add(red);
-    const blue = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.42), blueMat);
-    blue.position.set(0.28, 1.5, -type.length * 0.05);
+    const blue = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.26, 0.48), blueMat);
+    blue.position.set(0.38, 1.56, -type.length * 0.05);
     group.add(blue);
     lightBar = { redMat, blueMat };
   }
