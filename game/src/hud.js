@@ -92,8 +92,8 @@ export function createHud() {
     Beni: { skin: '#8a5a38', hair: '#101010', shirt: '#ff7a1a', bg: '#4a2c12' },
     Dani: { skin: '#c98a5f', hair: '#1c1410', shirt: '#2e6fc2', bg: '#1c2f4a' },
   };
-  // Character roles for the dialogue card, like the reference's
-  // "JUNO REYES / WHEELWOMAN" line under the portrait.
+  // Character roles for the dialogue card: a role line under the name,
+  // like the reference's role line under the portrait.
   const ROLES = {
     Rico: 'TANGAN KANAN',
     Zara: 'PEMBALAP',
@@ -138,8 +138,8 @@ export function createHud() {
     for (let i = 0; i < 5; i += 1) stars += i < state.wanted ? '★' : '☆';
     wantedEl.textContent = stars;
     wantedEl.classList.toggle('hot', state.wanted > 0);
-    // Wanted state line, like the reference's "IN SIGHT · GULL-1" badge
-    // under the stars. While the helicopter's beam is on the player the
+    // Wanted state line, like the reference's "IN SIGHT" badge under
+    // the stars. While the helicopter's beam is on the player the
     // pill names the helicopter: "TERLIHAT · HERON-1". Round 13: the
     // dot stays red while the word is white on a solid pill (see
     // #wanted-state) — a red dot + white word reads at a glance, a
