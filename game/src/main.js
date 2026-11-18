@@ -1,14 +1,14 @@
 // AshboelPunks — boot and the one loop.
-// Input is read every frame, the world advances in fixed 1/60 s steps, and
-// the renderer paints what is there. The game moves between four screens:
-// title, play, paused and game over (busted / wasted).
+// Input is read every frame, the world advances in fixed 1/60 s steps,
+// and the renderer paints what is there. Four screens: title, play,
+// paused and game over (busted / wasted).
 //
 // ?seed=N fixes the city. ?shot=start|drive|mission|chase (with &seed=N)
-// stages that scene instead of running the loop, plays it forward a couple
-// of seconds, paints it and sets window.__shotReady for a screenshot.
+// stages that scene instead of running the loop: it plays forward a
+// couple of seconds, paints it and sets window.__shotReady for a shot.
 
 import * as THREE from 'three';
-import { WORLD_HALF, DAY_LENGTH_SECONDS, START_MONEY, MAX_WANTED, GOLDEN_HOUR, clamp, districtAt, streetAt, distance2D } from './config.js';
+import { DAY_LENGTH_SECONDS, GOLDEN_HOUR, clamp, districtAt, streetAt, distance2D } from './config.js';
 import { createRandom } from './random.js';
 import { createInput, ACTION_CONFIRM, ACTION_PAUSE, ACTION_ENTER_CAR, ACTION_PUNCH, ACTION_SHOOT, ACTION_WEAPON, ACTION_JUMP, ACTION_RADIO, ACTION_HORN } from './input.js';
 import { createAudio } from './audio.js';
@@ -42,7 +42,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // Filmic tone mapping: golden-hour sunsets get warm highlights instead of
-// blown-out white, and neon reads at dusk. Exposure is high on purpose:
+// blown-out white, and neon reads at dusk. Exposure is high on purpose —
 // the game should read bright and sunny, like the entries on the feed.
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.45;
@@ -74,6 +74,9 @@ const hud = createHud();
 const minimap = createMinimap();
 const input = createInput(canvas);
 
+// ctx is the one object every system shares: the world, the save, the
+// clock, the screen state, and the two mission spawners (a car to steal,
+// enemies to fight) that missions ask for by name.
 const ctx = {
   scene, camera, renderer, rng, input, audio, save, city, player, traffic,
   peds, police, combat, missions, effects, hud, minimap,
@@ -174,6 +177,8 @@ function startNextMission() {
   missions.startMission(save.missionIndex, ctx);
 }
 
+// Busted or wasted: lose 15% of the cash, clear the heat and the fight,
+// put Dani back on the Downtown street at golden hour.
 function respawn(reason) {
   const lost = Math.floor(save.money * 0.15);
   save.money = Math.max(0, save.money - lost);
@@ -261,10 +266,10 @@ function drivePlayerCar(dt, car, throttle, steer, handbrake, allCars) {
     }
   }
   // Dust and exhaust while driving: a soft billowing trail behind the
-  // rear wheels at speed, like the new reference's dust cloud. Round 13:
-  // the trail spawns more often (20/s) and from a lower speed, so at
-  // 159 km/h the drive shot always has fresh puffs hugging the rear
-  // wheels instead of a dustless frame.
+  // rear wheels at speed, like the reference's dust cloud. The trail
+  // spawns often (20/s) and from a low speed, so at 159 km/h the drive
+  // shot always has fresh puffs hugging the rear wheels instead of a
+  // dustless frame.
   if (Math.abs(car.speed) > 6 && Math.random() < dt * 20) {
     effects.dustTrail(
       car.x - Math.sin(car.heading) * 2, 0.4, car.z - Math.cos(car.heading) * 2,

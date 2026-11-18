@@ -1,13 +1,13 @@
 // Solmar Bay itself: ground, beach and water, the road grid with traffic
 // lights and crosswalks, sidewalks, parks, and district-by-district
-// buildings — glass towers downtown, low terracotta Old Town, warehouses in
-// Industrial, hotels on Beachfront — plus the landmarks (Solmar Tower, the
-// lighthouse, the ferris wheel, the pier), neon signs, palms and street
-// lamps, and the sun and day/night cycle. Also owns the collision boxes the
-// rest of the game tests against, and the road helpers traffic uses.
+// buildings — glass towers downtown, low terracotta Old Town, warehouses
+// in Industrial, hotels on Beachfront — plus the landmarks (Solmar Tower,
+// the lighthouse, the ferris wheel, the pier), neon signs, palms and street
+// lamps, and the sun and day/night cycle. Also owns the collision boxes
+// the rest of the game tests against, and the road helpers traffic uses.
 
 import * as THREE from 'three';
-import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, BEACH_X, WATER_X, SAND_X0, WATERLINE_X, PALETTE, BUILDING_CORNER_MAX, BUILDING_BEVEL, BUILDING_SETBACK_CHANCE, BUILDING_BALCONY_CHANCE, BUILDING_ARCADE_CHANCE, clamp, lerp } from './config.js';
+import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, BEACH_X, SAND_X0, WATERLINE_X, PALETTE, BUILDING_CORNER_MAX, BUILDING_BEVEL, BUILDING_SETBACK_CHANCE, BUILDING_BALCONY_CHANCE, BUILDING_ARCADE_CHANCE, clamp, lerp } from './config.js';
 import { pick, range, gauss } from './random.js';
 
 // Warm pastel facades, varied like the entries on the feed: pink, orange
@@ -15,16 +15,25 @@ import { pick, range, gauss } from './random.js';
 const FACADE_COLORS = ['#e8a89a', '#f0b27a', '#8fc4b8', '#f2d06b', '#d9a0c0', '#d9b48f', '#c98a6b', '#b8c4c4', '#e0cfa8', '#a8b8c4'];
 const GLASS_COLORS = ['#7fa8c4', '#5f8aa8', '#8fb4c8'];
 
-function makeFacadeTexture(rng, base, glass, litChance) {
+// Tiny deterministic pseudo-random for texture painting (not the seeded
+// world rng — textures must not consume it).
+let texSeed = 1234567;
+function texRand() {
+  texSeed = (texSeed * 1103515245 + 12345) % 2147483648;
+  return texSeed / 2147483648;
+}
+
+// Facade texture: a base colour with a window grid. Some windows glow
+// warm, most stay dark glass; glass towers get denser, bluer windows.
+// Warm seafront facades get many more lit windows — golden-hour rooms
+// glowing, like the reference's beachfront.
+function facadeTexture(rng, base, glass, litChance) {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 256;
   const g = canvas.getContext('2d');
   g.fillStyle = base;
   g.fillRect(0, 0, 128, 256);
-  // Window grid: some lit warm, most dark glass; glass towers get denser,
-  // bluer windows. Warm seafront facades get many more lit windows —
-  // golden-hour rooms glowing, like the reference's beachfront.
   const rows = glass ? 16 : 12;
   const cols = glass ? 8 : 6;
   const chance = litChance !== undefined ? litChance : (glass ? 0.2 : 0.28);
@@ -45,33 +54,33 @@ function makeFacadeTexture(rng, base, glass, litChance) {
   return texture;
 }
 
-function makeRoadTexture() {
-  // Canvas is wide: the lines run along U, the road's long axis.
-  // DARK asphalt like the reference (double yellow centre lines, white
-  // edge lines), never wide brown — the road must read as a sunlit city
-  // street, not a desert. Subtle tonal variation + tyre tracks along the
-  // wheel lines keep it from reading flat, and the yellow lines stay
-  // crisp so the lane reads at a glance.
+// Road texture: the canvas is wide, the lines run along U, the road's
+// long axis. Light cool-grey asphalt like the reference (double yellow
+// centre lines, white edge lines) — the road must read as a sunlit city
+// street, not a desert. Subtle tonal variation plus tyre tracks along the
+// wheel lines keep it from reading flat, and the yellow lines stay crisp
+// so the lane reads at a glance.
+function roadTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 64;
   const g = canvas.getContext('2d');
   // Light cool-grey base: sunlit asphalt like the new reference — light
   // enough to read bright at sunset, grey enough to stay asphalt, never
-  // a brown desert. Round 13: the old warm-grey base (#6e675c) plus the
-  // warm emissive and warm sheen stacked into brown-tan in the drive
-  // shot — the base is lighter and cooler now, and the warm sun does
-  // the warming; the base stays grey.
+  // a brown desert. The old warm-grey base plus the warm emissive and
+  // warm sheen stacked into brown-tan in the drive shot — the base is
+  // lighter and cooler now, and the warm sun does the warming; the base
+  // stays grey.
   g.fillStyle = '#8d8880';
   g.fillRect(0, 0, 512, 64);
   // Soft tonal blotches: low alpha so the 512px tile repeats without an
   // obvious seam, just enough grain to break the flat colour.
   for (let i = 0; i < 26; i += 1) {
-    const light = rng01() < 0.5;
+    const light = texRand() < 0.5;
     g.fillStyle = light ? 'rgba(150, 142, 130, 0.10)' : 'rgba(40, 36, 32, 0.10)';
-    const w = 20 + rng01() * 60;
-    const h = 6 + rng01() * 18;
-    g.fillRect(rng01() * 512, rng01() * 64, w, h);
+    const w = 20 + texRand() * 60;
+    const h = 6 + texRand() * 18;
+    g.fillRect(texRand() * 512, texRand() * 64, w, h);
   }
   // Tyre tracks: darker bands along the wheel lines, constant along U so
   // they tile seamlessly down the whole road.
@@ -81,9 +90,9 @@ function makeRoadTexture() {
   // Fine grain: hundreds of tiny speckles, so the asphalt reads as
   // textured aggregate at close range instead of a flat grey slab.
   for (let i = 0; i < 900; i += 1) {
-    const v = rng01();
+    const v = texRand();
     g.fillStyle = v < 0.5 ? 'rgba(255, 244, 224, 0.05)' : 'rgba(20, 16, 12, 0.06)';
-    g.fillRect(rng01() * 512, rng01() * 64, 1 + rng01() * 1.5, 1);
+    g.fillRect(texRand() * 512, texRand() * 64, 1 + texRand() * 1.5, 1);
   }
   // Sunlit sheen band on the sun side of the road — cooler and weaker
   // than before, so it reads as hazy light on grey asphalt, not a warm
@@ -102,7 +111,7 @@ function makeRoadTexture() {
   g.fillRect(0, 33, 512, 1);
   for (let i = 0; i < 14; i += 1) {
     g.fillStyle = 'rgba(141, 136, 128, 0.55)';
-    g.fillRect(rng01() * 512, 31, 3 + rng01() * 8, 3);
+    g.fillRect(texRand() * 512, 31, 3 + texRand() * 8, 3);
   }
   // White edge lines.
   g.fillStyle = '#e8e4da';
@@ -119,7 +128,7 @@ function makeRoadTexture() {
 // Sand texture: dry pale sand at the promenade edge fading to a darker
 // wet band at the waterline, with fine speckle — the beach reads as sand
 // with a shoreline, not a flat yellow slab.
-function makeSandTexture() {
+function sandTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 256;
@@ -131,9 +140,9 @@ function makeSandTexture() {
   g.fillStyle = grad;
   g.fillRect(0, 0, 128, 256);
   for (let i = 0; i < 500; i += 1) {
-    const v = rng01();
+    const v = texRand();
     g.fillStyle = v < 0.5 ? 'rgba(255, 244, 210, 0.08)' : 'rgba(120, 95, 50, 0.08)';
-    g.fillRect(rng01() * 128, rng01() * 256, 1 + rng01() * 2, 1);
+    g.fillRect(texRand() * 128, texRand() * 256, 1 + texRand() * 2, 1);
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
@@ -143,15 +152,8 @@ function makeSandTexture() {
   return tex;
 }
 
-// Tiny deterministic pseudo-random for texture painting (not the seeded
-// world rng — textures must not consume it).
-let texSeed = 1234567;
-function rng01() {
-  texSeed = (texSeed * 1103515245 + 12345) % 2147483648;
-  return texSeed / 2147483648;
-}
-
-function makeSignTexture(text, color) {
+// Neon sign texture: glowing letters on a dark tile.
+function signTexture(text, color) {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 64;
@@ -172,13 +174,13 @@ function makeSignTexture(text, color) {
 
 // Rounded-corner building mass: the footprint is a rounded rectangle
 // (quadratic corners) extruded up with a bevel, so no building is a
-// sharp-cornered slab — the same rounded-extrude trick the cars use
-// (round 9), applied to architecture. ExtrudeGeometry's side walls take
-// UVs in shape units (metres), so a facade texture with repeat 1/20,
-// 1/24 tiles every 20 m across and 24 m up; material 0 is the lids
-// (roof), material 1 the walls. The bevel bulges the mass slightly at
-// the base and the roofline, like a plinth and a cornice.
-function roundedRectShape(w, d, r) {
+// sharp-cornered slab — the same rounded-extrude trick the cars use,
+// applied to architecture. ExtrudeGeometry's side walls take UVs in shape
+// units (metres), so a facade texture with repeat 1/20, 1/24 tiles every
+// 20 m across and 24 m up; material 0 is the lids (roof), material 1 the
+// walls. The bevel bulges the mass slightly at the base and the roofline,
+// like a plinth and a cornice.
+function roundedRect(w, d, r) {
   const shape = new THREE.Shape();
   const hw = w / 2;
   const hd = d / 2;
@@ -196,7 +198,7 @@ function roundedRectShape(w, d, r) {
 }
 
 function extrudeMass(w, d, h, r) {
-  const geo = new THREE.ExtrudeGeometry(roundedRectShape(w, d, r), {
+  const geo = new THREE.ExtrudeGeometry(roundedRect(w, d, r), {
     depth: h, bevelEnabled: true, bevelThickness: BUILDING_BEVEL,
     bevelSize: BUILDING_BEVEL * 0.8, bevelSegments: 2, steps: 1, curveSegments: 6,
   });
@@ -205,8 +207,8 @@ function extrudeMass(w, d, h, r) {
   return geo;
 }
 
+// Gaps between the roads (road width 14, so 7 each side) plus the edges.
 function blockRanges() {
-  // Gaps between the roads (road width 14, so 7 each side) plus the edges.
   const ranges = [];
   for (let i = 0; i < ROAD_POSITIONS.length; i += 1) {
     const x0 = i === 0 ? -WORLD_HALF : ROAD_POSITIONS[i - 1] + ROAD_WIDTH / 2;
@@ -229,7 +231,6 @@ export function buildCity(scene, rng) {
   const colliders = [];
   const lamps = [];
   const facadeMats = [];
-  const trafficHeads = [];
   const boats = [];
   const group = new THREE.Group();
   scene.add(group);
@@ -255,7 +256,7 @@ export function buildCity(scene, rng) {
     // A touch of warm emissive: the sand sits in the hotels' long shadows
     // at golden hour, and without it the beach reads grey-green, not sand.
     // Kept low (0.12) so shadowed sand still reads as shadow.
-    new THREE.MeshLambertMaterial({ map: makeSandTexture(), emissive: 0x8a7a4a, emissiveIntensity: 0.12 }),
+    new THREE.MeshLambertMaterial({ map: sandTexture(), emissive: 0x8a7a4a, emissiveIntensity: 0.12 }),
   );
   sand.rotation.x = -Math.PI / 2;
   sand.position.set((SAND_X0 + WATERLINE_X) / 2, 0.03, 0);
@@ -291,13 +292,13 @@ export function buildCity(scene, rng) {
   // Roads with dashed centre lines, and sidewalks along their edges.
   // Geometries are pre-rotated flat (rotateY turns a road along X into one
   // along Z), so no per-mesh Euler guesswork is needed.
-  const roadTexture = makeRoadTexture();
+  const roadTex = roadTexture();
   // Sunlit lift: a little COOL emissive so the asphalt reads bright in
-  // the sunset instead of going dark brown under the pink sky. Round 13:
-  // the old warm emissive (0xffc08a) was the main brown culprit — a warm
-  // glow on a warm-grey base turned the whole road tan. Cool grey-blue
-  // lift keeps the road grey; the sun still warms it from above.
-  const roadMat = new THREE.MeshPhongMaterial({ map: roadTexture, emissive: 0xb9c2cc, emissiveIntensity: 0.1, shininess: 14, specular: 0x4a5058 });
+  // the sunset instead of going dark brown under the pink sky. The old
+  // warm emissive was the main brown culprit — a warm glow on a warm-grey
+  // base turned the whole road tan. Cool grey-blue lift keeps the road
+  // grey; the sun still warms it from above.
+  const roadMat = new THREE.MeshPhongMaterial({ map: roadTex, emissive: 0xb9c2cc, emissiveIntensity: 0.1, shininess: 14, specular: 0x4a5058 });
   const walkMat = new THREE.MeshLambertMaterial({ color: PALETTE.sidewalk });
   const roadGeoX = new THREE.PlaneGeometry(WORLD_HALF * 2, ROAD_WIDTH);
   roadGeoX.rotateX(-Math.PI / 2);
@@ -404,13 +405,13 @@ export function buildCity(scene, rng) {
 
   // Buildings, lot by lot, so blocks read as a dense city rather than one
   // box in an empty field. Each district builds differently.
-  const facadeTextures = FACADE_COLORS.map((c) => makeFacadeTexture(rng, c, false));
+  const facadeTextures = FACADE_COLORS.map((c) => facadeTexture(rng, c, false));
   // Beachfront facades lean warm — pink, peach, orange, cream — like
-  // the HALCYON reference's pastel seafront: saturated warm pastels,
-  // never cool grey-green or pale yellow.
+  // the reference's pastel seafront: saturated warm pastels, never cool
+  // grey-green or pale yellow.
   const warmFacadeTextures = ['#f2a0a8', '#f7b98a', '#f5a55c', '#e89aa8', '#f6e3c0', '#d98a63', '#f0c98a']
-    .map((c) => makeFacadeTexture(rng, c, false, 0.42));
-  const glassTextures = GLASS_COLORS.map((c) => makeFacadeTexture(rng, c, true));
+    .map((c) => facadeTexture(rng, c, false, 0.42));
+  const glassTextures = GLASS_COLORS.map((c) => facadeTexture(rng, c, true));
   const roofColors = [0xb5654a, 0x8a5a3c, 0x6b7c8a, 0x9c8a6a];
   // Shopfront awnings: bright striped canopies over the ground floor, so
   // the streets read as shops at a glance, not blank facades.
@@ -463,7 +464,7 @@ export function buildCity(scene, rng) {
       const [text, color] = pick(rng, NEON_SIGNS);
       const sign = new THREE.Mesh(
         new THREE.PlaneGeometry(11, 2.8),
-        new THREE.MeshBasicMaterial({ map: makeSignTexture(text, color) }),
+        new THREE.MeshBasicMaterial({ map: signTexture(text, color) }),
       );
       sign.position.set(cx, h * 0.72, cz + d / 2 + 0.35);
       group.add(sign);
@@ -475,7 +476,7 @@ export function buildCity(scene, rng) {
       const [text, color] = pick(rng, NEON_SIGNS);
       const shop = new THREE.Mesh(
         new THREE.PlaneGeometry(6.5, 1.7),
-        new THREE.MeshBasicMaterial({ map: makeSignTexture(text, color) }),
+        new THREE.MeshBasicMaterial({ map: signTexture(text, color) }),
       );
       shop.position.set(cx, 4.4, cz + d / 2 + 0.3);
       group.add(shop);
@@ -918,20 +919,20 @@ export function buildCity(scene, rng) {
   // upright arcs) are reused by every palm, so ~200 palms stay cheap:
   // shared geometry, one material, ~21 meshes per palm.
   //
-  // Like the HALCYON reference, a crown must read as a dense, layered
-  // mass: each frond carries TWO overlapping leaflet blades per station
-  // per side, the blades long and wide enough to overlap their
-  // neighbours, and the inner rings are shaded darker so the crown has
-  // volume instead of reading as one thin spiky star.
+  // Like the reference, a crown must read as a dense, layered mass: each
+  // frond carries overlapping leaflet blades per station per side, the
+  // blades long and wide enough to overlap their neighbours, and the inner
+  // rings are shaded darker so the crown has volume instead of reading as
+  // one thin spiky star.
   function makeFrondGeometry(len, rise, droop, leafLen, shade) {
     const positions = [];
     const colors = [];
     const indices = [];
     let vi = 0;
-    // Round 13: 20 stations instead of 14 — denser stations mean shorter
-    // segments, so the rib curve is smoother and the leaflets overlap
-    // into a continuous feather instead of a row of separate triangles
-    // with gaps (the serrated silhouette in the drive shot).
+    // 20 stations instead of 14 — denser stations mean shorter segments,
+    // so the rib curve is smoother and the leaflets overlap into a
+    // continuous feather instead of a row of separate triangles with gaps
+    // (the serrated silhouette in the drive shot).
     const stations = 20;
     const rib = [];
     for (let i = 0; i <= stations; i += 1) {
@@ -1021,9 +1022,9 @@ export function buildCity(scene, rng) {
     // triangle, so the leaflet tips read rounded up close.
     // Blunt-tip ratios, as fractions of the leaflet length L: how far
     // the tip edge is pulled back from the old sharp apex, and how wide
-    // the tip edge is. Round 13: wider, shorter tips (more pullback,
-    // wider tip edge) so the silhouette is soft and feathery, never a
-    // serrated triangle.
+    // the tip edge is. Wider, shorter tips (more pullback, wider tip
+    // edge) so the silhouette is soft and feathery, never a serrated
+    // triangle.
     const BLADE_A_PULLBACK = 0.28;
     const BLADE_A_TIP_HALF = 0.2;
     const BLADE_B_PULLBACK = 0.24;
@@ -1081,9 +1082,9 @@ export function buildCity(scene, rng) {
   }
   // Longer, heavier fronds than before, darkest on the deep-droop ring
   // (the shaded underside of the crown) and brightest on the upright
-  // ring catching the sun. Round 13: leaflets ~15% longer and tips
-  // curling further down, so the crown reads as soft drooping feathers
-  // like the reference palms, not stiff serrated fans.
+  // ring catching the sun. Leaflets ~15% longer and tips curling further
+  // down, so the crown reads as soft drooping feathers like the reference
+  // palms, not stiff serrated fans.
   const palmFrondDeepGeo = makeFrondGeometry(6.6, 0.05, 0.85, 1.15, 0.62);
   const palmFrondDroopGeo = makeFrondGeometry(6.2, 0.12, 0.72, 1.1, 0.78);
   const palmFrondMidGeo = makeFrondGeometry(5.6, 0.3, 0.5, 1.0, 0.92);
@@ -1105,7 +1106,7 @@ export function buildCity(scene, rng) {
     }
     for (let i = 0; i < 12; i += 1) {
       g.fillStyle = 'rgba(0,0,0,0.08)';
-      g.fillRect(rng01() * 64, 0, 2, 128);
+      g.fillRect(texRand() * 64, 0, 2, 128);
     }
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -1126,7 +1127,7 @@ export function buildCity(scene, rng) {
   })();
   const palmFlareGeo = new THREE.CylinderGeometry(0.36, 0.58, 0.9, 10);
   // Beachfront palms wear the reference's tall RED trunks — vivid
-  // red-orange like the HALCYON palms, not dark brown; avenue palms
+  // red-orange like the reference palms, not dark brown; avenue palms
   // wear ringed brown bark.
   const palmTrunkMatRed = new THREE.MeshLambertMaterial({ map: makeTrunkTexture('#b8442f', '#8e3222') });
   const palmTrunkMatBrown = new THREE.MeshLambertMaterial({ map: makeTrunkTexture('#6a4a2c', '#54371f') });
@@ -1252,7 +1253,7 @@ export function buildCity(scene, rng) {
     }
     const panel = new THREE.Mesh(
       new THREE.PlaneGeometry(panelW, panelH),
-      new THREE.MeshBasicMaterial({ map: makeSignTexture(text, color) }),
+      new THREE.MeshBasicMaterial({ map: signTexture(text, color) }),
     );
     panel.position.set(0, panelY, 0);
     board.add(panel);
@@ -1287,7 +1288,7 @@ export function buildCity(scene, rng) {
     }
     const panel = new THREE.Mesh(
       new THREE.PlaneGeometry(span, panelH),
-      new THREE.MeshBasicMaterial({ map: makeSignTexture(text, color) }),
+      new THREE.MeshBasicMaterial({ map: signTexture(text, color) }),
     );
     panel.position.set(315, panelY, z);
     panel.rotation.y = Math.PI;
@@ -1397,7 +1398,7 @@ export function buildCity(scene, rng) {
   scene.add(sunGlow);
 
   // Gradient sky dome: violet overhead fading through pink to gold at
-  // the horizon, like the new reference's pink-purple sunset — the sky
+  // the horizon, like the reference's pink-purple sunset — the sky
   // reads like a real sunset sky instead of a flat colour. It follows
   // the player and darkens at night.
   const skyCanvas = document.createElement('canvas');

@@ -49,8 +49,11 @@ function validateShots(files) {
 
 // Fail fast with a clear message when the game entry point is missing,
 // instead of copying a broken game/ and failing at the grader. shots.js
-// is required too: the staged screenshots are part of the entry.
-for (const required of ['game/index.html', 'game/src/main.js', 'game/src/shots.js']) {
+// is required too: the staged screenshots are part of the entry. The
+// Anton font is required as well: the title screen loads it, and a
+// missing font would ship a broken title. shots.json lists the staged
+// screenshots the harness renders.
+for (const required of ['game/index.html', 'game/src/main.js', 'game/src/shots.js', 'game/vendor/fonts/Anton-Regular.ttf', 'shots.json']) {
   if (!existsSync(join(here, required))) {
     throw new Error(`missing required file: ${required}`);
   }
@@ -72,7 +75,8 @@ mkdirSync(join(out, 'screenshots'), { recursive: true });
 if (existsSync(join(here, 'screenshots'))) {
   cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 }
-console.log(`AshboelPunks -> ${out}: game/ copied, ${shotFiles.length} screenshot(s) (${shotFiles.join(', ') || 'none'})`);
+const fontBytes = statSync(join(here, 'game/vendor/fonts/Anton-Regular.ttf')).size;
+console.log(`AshboelPunks -> ${out}: game/ copied, ${shotFiles.length} screenshot(s) (${shotFiles.join(', ') || 'none'}), Anton font ${fontBytes} bytes`);
 
 // The scorer's own caps (reference/gate.json): only text_max_bytes shapes
 // the bytes; the others refuse an entry the scorer would refuse (more than
