@@ -70,6 +70,7 @@ export function createHud() {
   let briefingTimer = null;
   let dialogueTimer = null;
   let bannerTimer = null;
+  let damageTimer = null;
   let lastHealth = 100;
   let lastDispatchKey = '';
 
@@ -335,7 +336,10 @@ export function createHud() {
       // Red flash when the player just took damage.
       if (state.health < lastHealth) {
         damageEl.classList.remove('hidden');
-        window.setTimeout(() => damageEl.classList.add('hidden'), 180);
+        // Reset the hide timer: a second hit inside 180 ms must not let
+        // the first hit's timer hide the flash early.
+        if (damageTimer) window.clearTimeout(damageTimer);
+        damageTimer = window.setTimeout(() => damageEl.classList.add('hidden'), 180);
       }
       lastHealth = state.health;
     },

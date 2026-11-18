@@ -374,7 +374,9 @@ export function createCarModel(typeName, color, rng, hero = false) {
     // read as two separate lines against it. Both strips share one
     // material, so braking flares them together.
     box(group, type.width * 0.9, 0.16, 0.06, darkMat, 0, 0.54, -type.length / 2 - 0.02, false);
-    stripMat = new THREE.MeshLambertMaterial({ color: 0xff2233, emissive: 0xff2233, emissiveIntensity: 2.6 });
+    // Deep red, not blown pink-white: the strips read as red taillights
+    // (round 9 nit), flaring brighter on braking.
+    stripMat = new THREE.MeshLambertMaterial({ color: 0xd8001a, emissive: 0xd8001a, emissiveIntensity: 2.2 });
     for (const side of [-1, 1]) {
       box(group, type.width * 0.3, 0.07, 0.04, stripMat, side * type.width * 0.27, 0.58, -type.length / 2 - 0.05, false);
     }
@@ -551,7 +553,7 @@ export function createCarModel(typeName, color, rng, hero = false) {
   };
   group.userData.setBraking = (on) => {
     tailMat.emissiveIntensity = on ? 2.6 : 1.0;
-    if (stripMat) stripMat.emissiveIntensity = on ? 3.6 : 2.6;
+    if (stripMat) stripMat.emissiveIntensity = on ? 3.0 : 2.2;
   };
   return group;
 }

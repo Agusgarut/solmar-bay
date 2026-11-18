@@ -35,8 +35,16 @@ export function createTraffic(scene, rng, city) {
     const road = preset ? preset.road : pick(rng, ROAD_POSITIONS);
     const t = preset ? preset.t : range(rng, -WORLD_HALF + 30, WORLD_HALF - 30);
     const dir = preset ? preset.dir : rng() < 0.5 ? 1 : -1;
-    if (along) car.place(t, road + (dir > 0 ? 3.5 : -3.5), dir > 0 ? Math.PI / 2 : -Math.PI / 2);
-    else car.place(road + (dir > 0 ? -3.5 : 3.5), t, dir > 0 ? 0 : Math.PI);
+    // Keep the player's spawn (0, 45) clear: a car starting on top of
+    // Dani reads as a bug in the first frame of every run.
+    let sx = along ? t : road + (dir > 0 ? -3.5 : 3.5);
+    let sz = along ? road + (dir > 0 ? 3.5 : -3.5) : t;
+    if (distance2D(sx, sz, 0, 45) < 25) {
+      if (along) sx += 50;
+      else sz += 50;
+    }
+    if (along) car.place(sx, sz, dir > 0 ? Math.PI / 2 : -Math.PI / 2);
+    else car.place(sx, sz, dir > 0 ? 0 : Math.PI);
     car.speed = TRAFFIC_SPEED * range(rng, 0.8, 1.1);
     car.targetSpeed = car.speed;
     cars.push(car);

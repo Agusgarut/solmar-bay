@@ -81,6 +81,11 @@ function serveFile(file, response) {
 }
 
 createServer((request, response) => {
+  // Read-only static server: anything but GET/HEAD is refused.
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    response.writeHead(405).end('method not allowed');
+    return;
+  }
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://localhost').pathname);

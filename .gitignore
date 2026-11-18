@@ -14,3 +14,7 @@ node_modules/
 coverage/
 .env
 .env.local
+
+# Staging temp files (screenshot dumps, scratch)
+tmp/
+*.tmp

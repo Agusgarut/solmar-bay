@@ -53,7 +53,19 @@ export function loadSave() {
   try {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return defaultSave();
-    return { ...defaultSave(), ...parsed };
+    // Coerce every field: a hand-edited or older save with a string
+    // where a number belongs must never poison the game state.
+    const merged = { ...defaultSave(), ...parsed };
+    const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+    merged.money = num(merged.money, 250);
+    merged.missionIndex = num(merged.missionIndex, 0);
+    merged.missionsDone = num(merged.missionsDone, 0);
+    merged.carsStolen = num(merged.carsStolen, 0);
+    merged.bestWanted = num(merged.bestWanted, 0);
+    merged.bestSpeed = num(merged.bestSpeed, 0);
+    merged.radioStation = num(merged.radioStation, 0);
+    merged.muted = merged.muted === true;
+    return merged;
   } catch {
     return defaultSave();
   }

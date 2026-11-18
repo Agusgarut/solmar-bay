@@ -119,7 +119,9 @@ export function createMinimap() {
     ctx.lineTo(18 * F, -44 * F);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = '#ffffff';
+    // Gold arrow while driving, white on foot — the map shows at a glance
+    // whether Dani is in a car.
+    ctx.fillStyle = state.inCar ? '#ffd23b' : '#ffffff';
     ctx.beginPath();
     ctx.moveTo(0, -8 * F);
     ctx.lineTo(5 * F, 6 * F);

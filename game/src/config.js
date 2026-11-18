@@ -15,6 +15,15 @@ export const WATER_X = 360;
 export const SAND_X0 = 322;
 export const WATERLINE_X = 348;
 
+// Building shape (round 10): rounded corners, setback tiers, balconies
+// and arcades — the city must read as varied architecture, not a row of
+// slabs. These tune how strongly the rounding reads.
+export const BUILDING_CORNER_MAX = 2.6; // max corner radius, metres
+export const BUILDING_BEVEL = 0.5; // rounded edge thickness on every mass
+export const BUILDING_SETBACK_CHANCE = 0.55; // upper tier on tall buildings
+export const BUILDING_BALCONY_CHANCE = 0.4; // balconies on street facades
+export const BUILDING_ARCADE_CHANCE = 0.45; // ground-floor colonnade
+
 // Traffic & crowd density: the streets must read busy, like the entries on
 // the feed — cars close together on the main roads, people on every sidewalk.
 export const TRAFFIC_CARS = 80;

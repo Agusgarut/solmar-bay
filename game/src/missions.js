@@ -202,7 +202,11 @@ export function createMissions(scene) {
       if (distance2D(px, pz, spot.x, spot.z) < 7) advance(ctx);
     },
     deliver(objective, dt, ctx, px, pz) {
-      handlers.goto(objective, dt, ctx, px, pz);
+      // Same as goto, but a car needs a wider arrival radius than a
+      // pedestrian — 9 m, so the delivery registers without pixel parking.
+      const spot = SPOTS[objective.spot];
+      showBeaconAt(spot);
+      if (distance2D(px, pz, spot.x, spot.z) < 9) advance(ctx);
     },
     race(objective, dt, ctx, px, pz) {
       objectiveTimer += dt;

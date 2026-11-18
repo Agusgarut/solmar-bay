@@ -7,8 +7,8 @@
 // rest of the game tests against, and the road helpers traffic uses.
 
 import * as THREE from 'three';
-import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, BEACH_X, WATER_X, SAND_X0, WATERLINE_X, PALETTE, clamp, lerp } from './config.js';
-import { pick, range } from './random.js';
+import { ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, BEACH_X, WATER_X, SAND_X0, WATERLINE_X, PALETTE, BUILDING_CORNER_MAX, BUILDING_BEVEL, BUILDING_SETBACK_CHANCE, BUILDING_BALCONY_CHANCE, BUILDING_ARCADE_CHANCE, clamp, lerp } from './config.js';
+import { pick, range, gauss } from './random.js';
 
 // Warm pastel facades, varied like the entries on the feed: pink, orange
 // and teal next to the sand and cream, so no two streets look alike.
@@ -31,6 +31,11 @@ function makeFacadeTexture(rng, base, glass) {
       const lit = rng() < (glass ? 0.2 : 0.28);
       g.fillStyle = lit ? '#ffd98a' : glass ? '#274b63' : '#2e4250';
       g.fillRect(6 + col * (128 / cols), 8 + row * (256 / rows), 128 / cols - 6, 256 / rows - 7);
+      // A thin frame around every window, so the facade reads as framed
+      // openings rather than flat dark rectangles pasted on a wall.
+      g.strokeStyle = 'rgba(255,255,255,0.20)';
+      g.lineWidth = 1;
+      g.strokeRect(6 + col * (128 / cols) + 0.5, 8 + row * (256 / rows) + 0.5, 128 / cols - 7, 256 / rows - 8);
     }
   }
   const texture = new THREE.CanvasTexture(canvas);
@@ -157,6 +162,41 @@ function makeSignTexture(text, color) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
+}
+
+// Rounded-corner building mass: the footprint is a rounded rectangle
+// (quadratic corners) extruded up with a bevel, so no building is a
+// sharp-cornered slab — the same rounded-extrude trick the cars use
+// (round 9), applied to architecture. ExtrudeGeometry's side walls take
+// UVs in shape units (metres), so a facade texture with repeat 1/20,
+// 1/24 tiles every 20 m across and 24 m up; material 0 is the lids
+// (roof), material 1 the walls. The bevel bulges the mass slightly at
+// the base and the roofline, like a plinth and a cornice.
+function roundedRectShape(w, d, r) {
+  const shape = new THREE.Shape();
+  const hw = w / 2;
+  const hd = d / 2;
+  shape.moveTo(-hw + r, -hd);
+  shape.lineTo(hw - r, -hd);
+  shape.quadraticCurveTo(hw, -hd, hw, -hd + r);
+  shape.lineTo(hw, hd - r);
+  shape.quadraticCurveTo(hw, hd, hw - r, hd);
+  shape.lineTo(-hw + r, hd);
+  shape.quadraticCurveTo(-hw, hd, -hw, hd - r);
+  shape.lineTo(-hw, -hd + r);
+  shape.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
+  shape.closePath();
+  return shape;
+}
+
+function extrudeMass(w, d, h, r) {
+  const geo = new THREE.ExtrudeGeometry(roundedRectShape(w, d, r), {
+    depth: h, bevelEnabled: true, bevelThickness: BUILDING_BEVEL,
+    bevelSize: BUILDING_BEVEL * 0.8, bevelSegments: 2, steps: 1, curveSegments: 6,
+  });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, BUILDING_BEVEL, 0);
+  return geo;
 }
 
 function blockRanges() {
@@ -372,7 +412,19 @@ export function buildCity(scene, rng) {
     new THREE.MeshLambertMaterial({ color: 0xe8483f }),
   ];
   const ranges = blockRanges();
-  const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
+  // Shared roof-feature geometries (unit size, scaled per building): a
+  // barrel vault, a dome, a pyramid and a kiosk — so rooftops vary
+  // instead of every building ending in the same flat slab.
+  const barrelGeo = new THREE.CylinderGeometry(1, 1, 1, 12, 1, false, 0, Math.PI);
+  barrelGeo.rotateZ(Math.PI / 2); // half-shell, flat side down, axis along X
+  const domeGeo = new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  const pyramidGeo = new THREE.ConeGeometry(1, 1, 4);
+  const unitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+  const arcadeColGeo = new THREE.CylinderGeometry(0.22, 0.26, 3.4, 8);
+  const balconySlabMat = new THREE.MeshLambertMaterial({ color: 0xd8d2c4 });
+  const railMat = new THREE.MeshLambertMaterial({ color: 0x2c2f33 });
+  const arcadeBandMat = new THREE.MeshLambertMaterial({ color: 0x6b6258 });
+  const arcadeColMat = new THREE.MeshLambertMaterial({ color: 0xcfc8b8 });
   const NEON_SIGNS = [
     ['HOTEL', '#ff5e8a'], ['SOLMAR', '#4fd8ff'], ['PIZZA', '#ffb13b'],
     ['BAR', '#ff4f4f'], ['NEON', '#b46bff'], ['24H', '#7bff9e'],
@@ -419,11 +471,110 @@ export function buildCity(scene, rng) {
     }
   }
 
+  // One roof feature on the topmost mass: barrel vault, dome, pyramid,
+  // kiosk or a flat inset cap — the skyline steps and curves instead of
+  // ending in one flat edge on every building.
+  function addRoofFeature(cx, topY, cz, w, d, roofMat) {
+    const roll = rng();
+    const shortSide = Math.min(w, d);
+    const longSide = Math.max(w, d);
+    if (roll < 0.3) {
+      // Barrel vault along the long side.
+      const barrel = new THREE.Mesh(barrelGeo, roofMat);
+      const radius = shortSide * 0.32;
+      barrel.scale.set(longSide * 0.7, radius, radius);
+      barrel.position.set(cx, topY, cz);
+      if (d > w) barrel.rotation.y = Math.PI / 2;
+      barrel.castShadow = true;
+      group.add(barrel);
+    } else if (roll < 0.5) {
+      const dome = new THREE.Mesh(domeGeo, roofMat);
+      const radius = shortSide * 0.36;
+      dome.scale.set(radius, radius * 0.55, radius);
+      dome.position.set(cx, topY, cz);
+      dome.castShadow = true;
+      group.add(dome);
+    } else if (roll < 0.7) {
+      const pyramid = new THREE.Mesh(pyramidGeo, roofMat);
+      const radius = shortSide * 0.48;
+      pyramid.scale.set(radius, 3.5, radius);
+      pyramid.position.set(cx, topY + 1.75, cz);
+      pyramid.rotation.y = Math.PI / 4;
+      pyramid.castShadow = true;
+      group.add(pyramid);
+    } else if (roll < 0.85) {
+      // Rooftop kiosk with a tiny dome on top.
+      const kiosk = new THREE.Mesh(unitBoxGeo, roofMat);
+      kiosk.scale.set(w * 0.24, 2.6, d * 0.24);
+      kiosk.position.set(cx, topY + 1.3, cz);
+      kiosk.castShadow = true;
+      group.add(kiosk);
+      const cap = new THREE.Mesh(domeGeo, roofMat);
+      const radius = Math.min(w, d) * 0.14;
+      cap.scale.set(radius, radius * 0.6, radius);
+      cap.position.set(cx, topY + 2.6, cz);
+      group.add(cap);
+    } else {
+      // Flat inset cap, the old stepped roofline.
+      const cap = new THREE.Mesh(unitBoxGeo, roofMat);
+      cap.scale.set(w * 0.8, 0.5, d * 0.8);
+      cap.position.set(cx, topY + 0.25, cz);
+      cap.castShadow = true;
+      group.add(cap);
+    }
+  }
+
+  // Balconies on the street face (+z): a slab and a railing, a couple of
+  // floors up — the facade stops reading as one flat wall.
+  function addBalconies(cx, cz, w, d, h, district) {
+    if ((district !== 'beachfront' && district !== 'downtown' && district !== 'oldtown') || h < 14) return;
+    if (rng() >= BUILDING_BALCONY_CHANCE) return;
+    for (let k = 0; k < 2; k += 1) {
+      const y = 6 + k * 4.5 + rng();
+      if (y > h - 3) break;
+      const bx = cx + range(rng, -w * 0.3, w * 0.3);
+      const bz = cz + d / 2 + 0.5;
+      const slab = new THREE.Mesh(unitBoxGeo, balconySlabMat);
+      slab.scale.set(2.6, 0.16, 1.0);
+      slab.position.set(bx, y, bz);
+      slab.castShadow = true;
+      group.add(slab);
+      const rail = new THREE.Mesh(unitBoxGeo, railMat);
+      rail.scale.set(2.6, 0.8, 0.06);
+      rail.position.set(bx, y + 0.48, bz + 0.5);
+      group.add(rail);
+      for (const side of [-1, 1]) {
+        const railSide = new THREE.Mesh(unitBoxGeo, railMat);
+        railSide.scale.set(0.06, 0.8, 1.0);
+        railSide.position.set(bx + side * 1.3, y + 0.48, bz);
+        group.add(railSide);
+      }
+    }
+  }
+
+  // Ground-floor colonnade: a darker podium band with columns in front,
+  // so low street buildings read as shops with an arcade, not a wall
+  // that starts at the sidewalk.
+  function addArcade(cx, cz, w, d, district) {
+    if ((district !== 'beachfront' && district !== 'downtown') || rng() >= BUILDING_ARCADE_CHANCE) return;
+    const band = new THREE.Mesh(unitBoxGeo, arcadeBandMat);
+    band.scale.set(w + 0.3, 3.4, d + 0.3);
+    band.position.set(cx, 1.7, cz);
+    band.receiveShadow = true;
+    group.add(band);
+    for (let x = cx - w / 2 + 2; x <= cx + w / 2 - 2; x += 4) {
+      const col = new THREE.Mesh(arcadeColGeo, arcadeColMat);
+      col.position.set(x, 1.7, cz + d / 2 + 0.35);
+      col.castShadow = true;
+      group.add(col);
+    }
+  }
+
   function addBuilding(cx, cz, w, d, h, district) {
     const glass = district === 'downtown';
-    // Clone the facade texture per building and repeat it to the building's
-    // size, so windows stay the same size on every facade instead of
-    // stretching into giant slabs on wide towers.
+    // Clone the facade texture per building. The extruded mass takes UVs
+    // in metres, so one repeat (1/20, 1/24) keeps windows the same size
+    // on every facade instead of stretching into giant slabs.
     const baseTex = glass
       ? pick(rng, glassTextures)
       : district === 'beachfront' ? pick(rng, warmFacadeTextures) : pick(rng, facadeTextures);
@@ -431,35 +582,55 @@ export function buildCity(scene, rng) {
     tex.needsUpdate = true;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(Math.max(1, Math.round(w / 20)), Math.max(1, Math.round(h / 24)));
+    tex.repeat.set(1 / 20, 1 / 24);
     const facade = new THREE.MeshLambertMaterial({
       map: tex, emissive: 0xffd9a0, emissiveMap: tex, emissiveIntensity: 0,
     });
     facadeMats.push(facade);
     const roofColor = district === 'industrial' ? 0x5a6068 : pick(rng, roofColors);
     const roof = new THREE.MeshLambertMaterial({ color: roofColor });
-    const building = new THREE.Mesh(buildingGeo, [facade, facade, roof, roof, facade, facade]);
-    building.scale.set(w, h, d);
-    building.position.set(cx, h / 2, cz);
+    // Rounded-corner mass with a bevelled edge — the silhouette is a
+    // softened slab, never a sharp box.
+    const cornerR = Math.min(BUILDING_CORNER_MAX, w * 0.1, d * 0.1);
+    const building = new THREE.Mesh(extrudeMass(w, d, h, cornerR), [roof, facade]);
+    building.position.set(cx, 0, cz);
     building.castShadow = true;
     building.receiveShadow = true;
     group.add(building);
     colliders.push({ x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2, z1: cz + d / 2 });
-    // Stepped roof cap: a slightly inset slab on top, so the roofline
-    // steps instead of ending in one sharp box edge.
-    if (h <= 42) {
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(w * 0.92, 0.5, d * 0.92), roof);
-      cap.position.set(cx, h + 0.25, cz);
-      cap.castShadow = true;
-      group.add(cap);
+    // Setback upper tier on tall buildings: a smaller rounded mass on
+    // top, so the roofline steps instead of ending in one flat edge.
+    let topW = w;
+    let topD = d;
+    let topY = h + BUILDING_BEVEL * 2;
+    if (h >= 20 && rng() < BUILDING_SETBACK_CHANCE) {
+      const w2 = w * range(rng, 0.55, 0.72);
+      const d2 = d * range(rng, 0.55, 0.72);
+      const h2 = h * range(rng, 0.16, 0.3);
+      const tex2 = baseTex.clone();
+      tex2.needsUpdate = true;
+      tex2.wrapS = THREE.RepeatWrapping;
+      tex2.wrapT = THREE.RepeatWrapping;
+      tex2.repeat.set(1 / 20, 1 / 24);
+      const facade2 = new THREE.MeshLambertMaterial({
+        map: tex2, emissive: 0xffd9a0, emissiveMap: tex2, emissiveIntensity: 0,
+      });
+      facadeMats.push(facade2);
+      const tier = new THREE.Mesh(
+        extrudeMass(w2, d2, h2, Math.min(1.8, w2 * 0.1, d2 * 0.1)),
+        [roof, facade2],
+      );
+      tier.position.set(cx + range(rng, -1, 1), topY, cz + range(rng, -1, 1));
+      tier.castShadow = true;
+      tier.receiveShadow = true;
+      group.add(tier);
+      topW = w2;
+      topD = d2;
+      topY += h2 + BUILDING_BEVEL * 2;
     }
-    // Rooftop box on tall towers.
-    if (h > 42) {
-      const box = new THREE.Mesh(new THREE.BoxGeometry(w * 0.3, 3, d * 0.3), roof);
-      box.position.set(cx, h + 1.5, cz);
-      box.castShadow = true;
-      group.add(box);
-    }
+    addRoofFeature(cx, topY, cz, topW, topD, roof);
+    addBalconies(cx, cz, w, d, h, district);
+    if (h < 30) addArcade(cx, cz, w, d, district);
     dressBuilding(cx, cz, w, d, h, district);
     return building;
   }
@@ -532,12 +703,15 @@ export function buildCity(scene, rng) {
           const w = (lx1 - lx0) - 8;
           const d = (lz1 - lz0) - 8;
           if (w < 10 || d < 10) continue;
+          // Heights cluster around each district's middle (gauss) instead
+          // of spreading flat, so the skyline varies without random
+          // skyscrapers next to shacks.
           let h;
-          if (district === 'downtown') h = range(rng, 34, 82);
+          if (district === 'downtown') h = clamp(58 + gauss(rng) * 14, 34, 82);
           else if (district === 'industrial') h = range(rng, 8, 15);
-          else if (district === 'beachfront') h = range(rng, 22, 48);
+          else if (district === 'beachfront') h = clamp(34 + gauss(rng) * 8, 22, 48);
           else if (district === 'marina') h = range(rng, 8, 18);
-          else h = range(rng, 9, 24); // old town: low and tight
+          else h = clamp(16 + gauss(rng) * 4, 9, 24); // old town: low and tight
           const bw = district === 'industrial' ? w : range(rng, w * 0.6, w);
           const bd = district === 'industrial' ? d : range(rng, d * 0.6, d);
           addBuilding((lx0 + lx1) / 2, (lz0 + lz1) / 2, bw, bd, h, district);
@@ -547,23 +721,33 @@ export function buildCity(scene, rng) {
   }
 
   // Landmarks ------------------------------------------------------------
-  // Solmar Tower: the tallest building in the city, downtown.
+  // Solmar Tower: the tallest building in the city, downtown — three
+  // stacked rounded masses stepping up to the spire, not one slab.
   {
     const baseTex = pick(rng, glassTextures);
     const tex = baseTex.clone();
     tex.needsUpdate = true;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(2, 5);
+    tex.repeat.set(1 / 20, 1 / 24);
     const facade = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffd9a0, emissiveMap: tex, emissiveIntensity: 0 });
     facadeMats.push(facade);
-    const tower = new THREE.Mesh(buildingGeo, [facade, facade, new THREE.MeshLambertMaterial({ color: 0x3a4a5a }), new THREE.MeshLambertMaterial({ color: 0x3a4a5a }), facade, facade]);
-    tower.scale.set(30, 112, 30);
-    tower.position.set(0, 56, -90);
-    tower.castShadow = true;
-    tower.receiveShadow = true;
-    group.add(tower);
-    colliders.push({ x0: -15, x1: 15, z0: -105, z1: -75 });
+    const towerRoof = new THREE.MeshLambertMaterial({ color: 0x3a4a5a });
+    const towerBase = new THREE.Mesh(extrudeMass(34, 34, 70, 3), [towerRoof, facade]);
+    towerBase.position.set(0, 0, -90);
+    towerBase.castShadow = true;
+    towerBase.receiveShadow = true;
+    group.add(towerBase);
+    const towerMid = new THREE.Mesh(extrudeMass(26, 26, 26, 2.5), [towerRoof, facade]);
+    towerMid.position.set(0, 71, -90);
+    towerMid.castShadow = true;
+    towerMid.receiveShadow = true;
+    group.add(towerMid);
+    const towerTop = new THREE.Mesh(extrudeMass(18, 18, 16, 2), [towerRoof, facade]);
+    towerTop.position.set(0, 98, -90);
+    towerTop.castShadow = true;
+    group.add(towerTop);
+    colliders.push({ x0: -17, x1: 17, z0: -107, z1: -73 });
     const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.6, 22, 8), new THREE.MeshLambertMaterial({ color: 0x888888 }));
     spire.position.set(0, 122, -90);
     group.add(spire);

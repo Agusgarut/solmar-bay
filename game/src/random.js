@@ -16,6 +16,17 @@ export function createRandom(seed) {
   };
 }
 
+// Approximately standard-normal (mean 0, stddev 1), clamped to +/-3 —
+// Box-Muller on the seeded generator, so building heights cluster around
+// a district's middle instead of spreading flat across the whole range.
+export function gauss(rng) {
+  let u = 0;
+  while (u === 0) u = rng();
+  const v = rng();
+  const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  return Math.max(-3, Math.min(3, z));
+}
+
 // One entry of `list`, picked with the seeded generator.
 export function pick(rng, list) {
   if (!list || list.length === 0) return undefined;

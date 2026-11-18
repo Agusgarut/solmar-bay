@@ -62,6 +62,10 @@ export function createInput(canvas) {
   });
   window.addEventListener('blur', () => {
     keys.clear();
+    // A press queued before the blur must not fire after refocus.
+    actions = 0;
+    dragX = 0;
+    dragY = 0;
     dragging = false;
   });
 

@@ -59,6 +59,7 @@ export function createPedestrians(scene, rng) {
       x, z, heading,
       speed,
       walkPhase: rng() * 6,
+      pauseTimer: 0, // seconds the walker stands still at an intersection
       fleeing: false,
       fleeTimer: 0,
       dead: false,
@@ -184,6 +185,18 @@ export function createPedestrians(scene, rng) {
             else if (ped.beach) ped.heading = ped.z > 0 ? Math.PI : 0;
           }
         }
+        // Walkers sometimes pause for a beat at an intersection, like
+        // real people checking the street — the crowd stops marching.
+        if (!ped.fleeing && ped.pauseTimer > 0) {
+          ped.pauseTimer -= dt;
+          ped.walkPhase += dt * 0.5;
+          const idleSwing = Math.sin(ped.walkPhase) * 0.05;
+          ped.model.userData.leftLeg.rotation.x = idleSwing;
+          ped.model.userData.rightLeg.rotation.x = -idleSwing;
+          ped.model.position.set(ped.x, 0, ped.z);
+          ped.model.rotation.y = ped.heading;
+          continue;
+        }
         const speed = ped.fleeing ? 5.5 : ped.speed;
         ped.x += Math.sin(ped.heading) * speed * dt;
         ped.z += Math.cos(ped.heading) * speed * dt;
@@ -207,6 +220,7 @@ export function createPedestrians(scene, rng) {
           const near = nearestRoadCoord(along);
           if (Math.abs(along - near) < 1.5 && Math.random() < dt * 0.2) {
             ped.heading += (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2;
+            if (Math.random() < 0.25) ped.pauseTimer = 1 + Math.random() * 2;
           }
         }
         ped.x = clamp(ped.x, -WORLD_HALF + 5, WORLD_HALF - 5);

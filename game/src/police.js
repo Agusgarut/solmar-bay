@@ -4,7 +4,7 @@
 // out of sight lets the heat cool down one star at a time.
 
 import * as THREE from 'three';
-import { HELI_MIN_WANTED, MAX_WANTED, WANTED_DECAY_SECONDS, clamp, distance2D } from './config.js';
+import { HELI_MIN_WANTED, MAX_WANTED, WANTED_DECAY_SECONDS, ROAD_POSITIONS, ROAD_WIDTH, WORLD_HALF, clamp, distance2D } from './config.js';
 import { createCarModel, Car } from './vehicles.js';
 import { createPlayerCharacter } from './player.js';
 
@@ -126,19 +126,41 @@ export function createPolice(scene, rng) {
     roadblockCar = null;
   }
 
+  // A spawn point on a road near (px, pz): police arrive driving down a
+  // street, never materialising inside a building lot.
+  function roadSpawn(px, pz, minDist, maxDist) {
+    let x = px;
+    let z = pz;
+    for (let tries = 0; tries < 8; tries += 1) {
+      const road = ROAD_POSITIONS[Math.floor(Math.random() * ROAD_POSITIONS.length)];
+      const along = (Math.random() * 2 - 1) * (WORLD_HALF - 40);
+      const side = Math.random() < 0.5 ? 1 : -1;
+      const onX = Math.random() < 0.5;
+      x = onX ? along : road + side * (ROAD_WIDTH / 2 + 2.5);
+      z = onX ? road + side * (ROAD_WIDTH / 2 + 2.5) : along;
+      const d = Math.hypot(x - px, z - pz);
+      if (d >= minDist) {
+        if (d > maxDist) {
+          x = px + (x - px) * (maxDist / d);
+          z = pz + (z - pz) * (maxDist / d);
+        }
+        break;
+      }
+    }
+    return { x, z };
+  }
+
   // Spawn police just out of sight, at the edge of the player's view,
   // until the force matches the wanted level.
   function maintainForce(player, px, pz) {
     const force = { cars: Math.min(wanted, 4), foot: wanted >= 2 && !player.inCar ? Math.min(wanted - 1, 4) : 0 };
     while (copCars.length < force.cars) {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 70 + Math.random() * 40;
-      spawnCopCar(px + Math.sin(angle) * dist, pz + Math.cos(angle) * dist);
+      const spot = roadSpawn(px, pz, 55, 110);
+      spawnCopCar(spot.x, spot.z);
     }
     while (footCops.length < force.foot) {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 45 + Math.random() * 25;
-      spawnFootCop(px + Math.sin(angle) * dist, pz + Math.cos(angle) * dist);
+      const spot = roadSpawn(px, pz, 35, 70);
+      spawnFootCop(spot.x, spot.z);
     }
     while (copCars.length > force.cars) removeCopCar(copCars[copCars.length - 1]);
     while (footCops.length > force.foot) removeFootCop(footCops[footCops.length - 1]);

@@ -8,6 +8,9 @@ Third-party notices (all bundled locally under game/vendor/):
 - Three.js (game/vendor/three.module.min.js) — MIT License,
   Copyright (c) 2010-2026 three.js authors.
 
+Screenshots in screenshots/ are staged frames from the game itself
+(deterministic, seed 7) and share this license.
+
 SPDX-License-Identifier: MIT
 
 MIT License

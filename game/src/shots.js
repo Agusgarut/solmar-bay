@@ -34,6 +34,7 @@ export function stageShot(name, ctx) {
   ctx.player.health = 100;
   ctx.player.ammo = 24;
   ctx.player.weapon = name === 'mission' ? 'pistol' : 'fists';
+  ctx.player.cameraPitch = 0.32; // deterministic framing for every shot
   ctx.player.place(spawn.x, spawn.z, spawn.heading);
 
   if (name === 'start') return stageTitle(ctx);

@@ -103,7 +103,9 @@
   #wanted-label { font-size: 11px; letter-spacing: 3px; font-weight: 800; opacity: .85; margin-top: 2px; }
   #wanted { font-size: 30px; letter-spacing: 4px; color: var(--gold); }
   #wanted.hot { animation: pulse 0.7s infinite alternate; text-shadow: 0 0 14px rgba(255,210,59,.95), 0 0 30px rgba(255,120,40,.55); }
-  #wanted-state { font-size: 11px; letter-spacing: 2px; font-weight: 800; margin-top: 2px; color: var(--red-soft); }
+  /* A dark pill behind the label, so TERLIHAT stays readable when a palm
+     frond passes behind it (round 9 nit). */
+  #wanted-state { display: inline-block; font-size: 11px; letter-spacing: 2px; font-weight: 800; margin-top: 2px; color: var(--red-soft); background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 10px; }
   #wanted-state.safe { color: rgba(255,255,255,.55); }
   /* Weapon chips under the stars, like the reference's icon row:
      numbered slots 1-5, the equipped one highlighted, the rest dimmed

@@ -190,6 +190,9 @@ export function createCombat(scene, rng) {
       for (const tracer of [...tracers]) {
         tracer.life -= dt;
         if (tracer.life <= 0) {
+          // Free the per-shot geometry: a tracer a second for a whole
+          // shootout would otherwise leak a geometry per shot.
+          tracer.line.geometry.dispose();
           scene.remove(tracer.line);
           const i = tracers.indexOf(tracer);
           if (i >= 0) tracers.splice(i, 1);

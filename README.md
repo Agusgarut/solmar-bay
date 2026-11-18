@@ -18,6 +18,9 @@ the Solmar Bay Police Department, and work through 6 story missions.
 
 - **Open world**: a full city grid — Downtown, Old Town, Marina, Industrial,
   Beachfront — with a beach, red-trunked palms, traffic and pedestrians.
+- **Architecture**: rounded, stepped buildings — setback towers, barrel
+  roofs, domes, balconies and ground-floor arcades — so no street reads
+  as a row of slabs.
 - **Golden hour**: the game opens at sunset — warm light, long shadows, a
   low amber sun over the sea, neon signs and lit windows as dusk falls.
 - **Beachfront drive**: Ocean boulevard runs right along the sand, palms on

@@ -9,9 +9,18 @@ import { WALK_SPEED, RUN_SPEED, JUMP_SPEED, GRAVITY, PLAYER_RADIUS, CAMERA_DISTA
 // One helper for every body part: a box mesh, positioned, optionally
 // casting a shadow, with its pivot translated so limbs swing from the hip
 // or shoulder instead of their centre.
+// Shared part geometries: dozens of characters (player, pedestrians,
+// cops, enemies) are built from the same few boxes — one geometry per
+// size/pivot, not one per body part per character.
+const partGeoCache = new Map();
 function part(w, h, d, material, x, y, z, pivotY) {
-  const geo = new THREE.BoxGeometry(w, h, d);
-  if (pivotY !== undefined) geo.translate(0, pivotY, 0);
+  const key = `${w}|${h}|${d}|${pivotY ?? ''}`;
+  let geo = partGeoCache.get(key);
+  if (!geo) {
+    geo = new THREE.BoxGeometry(w, h, d);
+    if (pivotY !== undefined) geo.translate(0, pivotY, 0);
+    partGeoCache.set(key, geo);
+  }
   const mesh = new THREE.Mesh(geo, material);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;

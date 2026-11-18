@@ -192,6 +192,8 @@ function respawn(reason) {
   player.ammo = 24;
   player.place(0, 45, Math.PI);
   ctx.timeOfDay = GOLDEN_HOUR;
+  ctx.timeBase = GOLDEN_HOUR; // the clock recomputes from the base, so
+  // without this it would snap back to the old hour on the next frame
   hud.showOver(reason, `Kamu kehilangan $${lost}. Dani kembali ke jalanan Downtown.`);
   audio.busted();
 }
@@ -270,6 +272,9 @@ function drivePlayerCar(dt, car, throttle, steer, handbrake, allCars) {
       car.x - Math.sin(car.heading) * 2, 0.4, car.z - Math.cos(car.heading) * 2,
       0, 0,
       Math.min(1, Math.abs(car.speed) / 40),
+      // Lateral unit vector (rear axle), so the three puffs fan across
+      // the car's width instead of along its travel.
+      Math.cos(car.heading), -Math.sin(car.heading),
     );
   }
   if (Math.abs(car.speed) > 20 && Math.random() < dt * 4) {
@@ -323,6 +328,7 @@ function syncHud(dt) {
     playerX: player.x,
     playerZ: player.z,
     heading: player.heading,
+    inCar: !!player.inCar,
     trafficCars: traffic.cars,
     copCars: police.copCars,
     missionTarget,

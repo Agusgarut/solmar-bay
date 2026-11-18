@@ -9,6 +9,7 @@ export function createAudio() {
   let engineGain = null;
   let musicTimer = null;
   let muted = false;
+  let volume = 0.5;
   let musicStep = 0;
   let stationIndex = 0;
 
@@ -42,7 +43,7 @@ export function createAudio() {
       const AC = window.AudioContext || window.webkitAudioContext;
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = muted ? 0 : 0.5;
+      master.gain.value = muted ? 0 : volume;
       master.connect(ctx.destination);
       return true;
     } catch {
@@ -115,7 +116,12 @@ export function createAudio() {
     },
     setMuted(value) {
       muted = value;
-      if (master) master.gain.value = value ? 0 : 0.5;
+      if (master) master.gain.value = value ? 0 : volume;
+    },
+    // Master volume 0..1 (mute keeps working on top of it).
+    setVolume(value) {
+      volume = Math.max(0, Math.min(1, value));
+      if (master) master.gain.value = muted ? 0 : volume;
     },
     isMuted() {
       return muted;

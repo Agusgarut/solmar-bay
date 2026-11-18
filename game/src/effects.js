@@ -138,11 +138,14 @@ export function createEffects(scene) {
       burst(x, y, z, 7, 2.2, 2.4, 0.6, 0.85, 0.95, 1.0);
     },
     // Billowing dust trail behind a fast car: three soft sprites per call,
-    // drifting back with the car's motion, growing as they fade.
-    dustTrail(x, y, z, vx, vz, strength) {
+    // fanned across the rear axle (hx, hz is the axle's lateral unit
+    // vector), drifting back with the car's motion, growing as they fade.
+    dustTrail(x, y, z, vx, vz, strength, hx, hz) {
+      const lx = hx || 0;
+      const lz = hz || 0;
+      spawnDust(x - lx * 0.9, y, z - lz * 0.9, vx, 0.2, vz, strength);
       spawnDust(x, y, z, vx, 0.2, vz, strength);
-      spawnDust(x, y, z, vx, 0.2, vz, strength);
-      spawnDust(x, y, z, vx, 0.2, vz, strength);
+      spawnDust(x + lx * 0.9, y, z + lz * 0.9, vx, 0.2, vz, strength);
     },
     update(dt) {
       for (let i = 0; i < MAX_PARTICLES; i += 1) {
