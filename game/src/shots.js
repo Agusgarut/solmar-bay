@@ -1,79 +1,60 @@
-// The screenshot scenes behind ?shot=start|play|end. Each one plays the real rules forward from a
-// fresh world for a fixed number of steps, steered by a simple autopilot (look ahead each way the
-// paddle could move, keep clear of blocks, chase the lowest coin when that is safe), so the frame
-// is what a short game really looks like and the same seed always gives the same frame.
-import { FIELD, PLAYER, STEP } from './config.js';
-import { EVENT_OVER, KIND_BLOCK } from './world.js';
-import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// The screenshot scenes behind ?shot=start|drive|mission|chase.
+// Each one stages the real game — a real car, real police, a real mission —
+// then lets the simulation run a couple of seconds so the frame is what a
+// short game really looks like, and the same seed always gives the same frame.
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 26;
-const END_LIMIT_SECONDS = 600;
-/**
- * How far ahead, in seconds, the autopilot checks each way it could move: the play scene's pilot
- * looks well ahead and keeps all its lives; the end scene's looks only a moment ahead, so it is
- * caught out once the blocks speed up, as a hurried player is.
- */
-const HORIZON_PLAY = 0.7;
-const HORIZON_END = 0.25;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [0, -1, 1];
-/** Extra room, each side, it keeps between the paddle and a block. */
-const MARGIN = 10;
+import { createCarModel, Car } from './vehicles.js';
 
-/** Seconds until moving in `direction` (-1, 0, 1) runs the paddle into a block; Infinity when it never does. */
-function timeToHit(state, direction, horizon) {
-  const player = state.player;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * t));
-    for (let index = 0; index < state.items.length; index += 1) {
-      const item = state.items[index];
-      if (!item.active || item.kind !== KIND_BLOCK) continue;
-      const y = item.y + item.speed * t;
-      if (y + item.height > player.y && y < player.y + player.height && item.x < x + player.width + MARGIN && item.x + item.width > x - MARGIN) return t;
-    }
-  }
-  return Infinity;
-}
+// Where each scene starts the player (x, z, heading).
+const SPAWNS = {
+  start: { x: 250, z: 45, heading: -Math.PI / 2 },
+  drive: { x: -200, z: 45, heading: Math.PI / 2 },
+  mission: { x: 250, z: -160, heading: Math.PI },
+  chase: { x: -100, z: -45, heading: Math.PI / 2 },
+};
 
-/** Of the safe ways to move, the one toward the lowest coin (or the centre); else the one that is hit last. */
-function autopilot(state, horizon) {
-  const player = state.player;
-  let coin = null;
-  for (let index = 0; index < state.items.length; index += 1) {
-    const item = state.items[index];
-    if (item.active && item.kind !== KIND_BLOCK && (coin === null || item.y > coin.y)) coin = item;
-  }
-  const target = coin === null ? FIELD.width / 2 : coin.x + coin.width / 2;
-  const centre = player.x + player.width / 2;
-  const wanted = target > centre + 8 ? 1 : target < centre - 8 ? -1 : 0;
-  let best = wanted;
-  let bestTime = timeToHit(state, wanted, horizon);
-  for (let index = 0; index < DIRECTIONS.length && bestTime !== Infinity; index += 1) {
-    const time = timeToHit(state, DIRECTIONS[index], horizon);
-    if (time > bestTime) {
-      bestTime = time;
-      best = DIRECTIONS[index];
-    }
-  }
-  return best;
-}
+export function stageShot(name, ctx) {
+  const spawn = SPAWNS[name] || SPAWNS.start;
+  // The staged hour: night for the chase, sunset for the title, day else.
+  // updateGame advances time from timeBase, so set the base, not the clock.
+  ctx.timeBase = name === 'chase' ? 21.5 : name === 'start' ? 17.3 : name === 'mission' ? 14 : 10;
+  ctx.timeOfDay = ctx.timeBase;
+  ctx.player.health = 100;
+  ctx.player.ammo = 24;
+  ctx.player.weapon = name === 'mission' ? 'pistol' : 'fists';
+  ctx.player.place(spawn.x, spawn.z, spawn.heading);
 
-/**
- * Set `world` to the named scene (start, play or end; any other name is start) and return the
- * screen to draw over it and the best score to show.
- */
-export function stageShot(name, world) {
-  world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, 0, true);
-    return { screen: SCREEN_TITLE, best: 0 };
+  if (name === 'start') {
+    // Title screen over the city at sunset: the camera orbits downtown.
+    ctx.setState('title');
+    ctx.hud.showTitle();
+    ctx.player.cameraYaw = Math.PI * 0.75;
+    return { simulateSeconds: 0, throttle: 0, steer: 0, orbit: true };
   }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let index = 0; index < limit / STEP; index += 1) {
-    if (world.step(STEP, autopilot(world.state, horizon), false) & EVENT_OVER) break;
+
+  ctx.setState('play');
+  ctx.hud.showPlay();
+  ctx.audio.unlock();
+
+  if (name === 'drive' || name === 'chase') {
+    // Put Dani in a car and let them drive while the police close in.
+    const type = name === 'chase' ? 'sport' : 'coupe';
+    const model = createCarModel(type, name === 'chase' ? 0xd81e5b : 0x2e6fc2, ctx.rng);
+    ctx.scene.add(model);
+    const car = new Car(model, type);
+    car.driver = 'player';
+    // Right-hand lane, not the centre line.
+    car.place(spawn.x, spawn.z + 3.5, spawn.heading);
+    car.speed = 18;
+    ctx.traffic.parked.push(car);
+    ctx.player.inCar = car;
+    ctx.player.group.visible = false;
+    ctx.police.setWanted(name === 'chase' ? 4 : 2);
+    return { simulateSeconds: 2.6, throttle: 1, steer: 0, orbit: false };
   }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
+
+  // Mission: the port shootout, pistol out, guards ahead.
+  ctx.missions.startMission(4, ctx);
+  ctx.player.place(spawn.x, spawn.z, spawn.heading);
+  return { simulateSeconds: 1.2, throttle: 0, steer: 0, orbit: false };
 }

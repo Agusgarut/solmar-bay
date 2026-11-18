@@ -1,61 +1,92 @@
-// Every tuning number and colour in one place. The playfield is a fixed 1280x720 logical area;
-// the renderer scales it to the window, so no rule below depends on the screen size.
+// Solmar Bay — shared constants and world layout.
+// One file, one job: every number the rest of the game agrees on lives here,
+// so tuning the city, the cars or the police means editing this file only.
 
-export const FIELD = { width: 1280, height: 720, groundY: 664 };
+// World: a square coastal city, units are metres.
+export const WORLD_HALF = 360; // city spans -360..360 on x and z
+export const ROAD_SPACING = 90;
+export const ROAD_WIDTH = 14;
+export const ROAD_POSITIONS = [-315, -225, -135, -45, 45, 135, 225, 315];
+export const BEACH_X = 300; // sand starts here, water further east
+export const WATER_X = 360;
 
-/** The simulation's fixed step, in seconds: 60 updates a second whatever the display's rate. */
-export const STEP = 1 / 60;
+// Player / on-foot tuning.
+export const WALK_SPEED = 6;
+export const RUN_SPEED = 11;
+export const JUMP_SPEED = 8;
+export const GRAVITY = 22;
+export const PLAYER_RADIUS = 0.55;
 
-export const PLAYER = {
-  width: 72,
-  height: 24,
-  speed: 560,
-  invulnerable: 1.5,
-};
+// Arcade car tuning.
+export const CAR_ACCEL = 26;
+export const CAR_BRAKE = 46;
+export const CAR_REVERSE_ACCEL = 16;
+export const CAR_MAX_SPEED = 42;
+export const CAR_MAX_REVERSE = 12;
+export const CAR_TURN = 1.9;
+export const CAR_DRAG = 0.55;
 
-export const LIVES = 3;
+// Wanted system.
+export const MAX_WANTED = 5;
+export const WANTED_DECAY_SECONDS = 26; // hidden this long -> one star drops
 
-export const BLOCK = {
-  minWidth: 40,
-  maxWidth: 110,
-  height: 36,
-  speed: 240,
-  speedPerLevel: 30,
-  speedJitter: 90,
-  interval: 0.55,
-  intervalScale: 0.88,
-  minInterval: 0.14,
-  dodgePoints: 1,
-};
+// Money.
+export const START_MONEY = 250;
 
-export const COIN = {
-  size: 24,
-  speed: 190,
-  speedPerLevel: 14,
-  interval: 1.4,
-  intervalJitter: 0.8,
-  points: 10,
-};
+// Day cycle: one full day per 6 minutes of play.
+export const DAY_LENGTH_SECONDS = 360;
 
-/** Seconds of play per level, and the last level: speeds and spawn rates stop growing there. */
-export const LEVEL = { seconds: 12, max: 12 };
+// Camera.
+export const CAMERA_DISTANCE = 11;
+export const CAMERA_HEIGHT = 4.6;
 
-/** How many falling things can exist at once; the pool is allocated once, at boot. */
-export const POOL_SIZE = 64;
+// District names, west to east, south to north, for flavour text.
+export const DISTRICTS = [
+  { name: 'Old Town', x0: -360, x1: -90, z0: -360, z1: 90 },
+  { name: 'Downtown', x0: -90, x1: 90, z0: -180, z1: 180 },
+  { name: 'Marina', x0: -360, x1: 90, z0: 180, z1: 360 },
+  { name: 'Industrial', x0: 90, x1: 300, z0: -360, z1: -90 },
+  { name: 'Beachfront', x0: 90, x1: 300, z0: -90, z1: 360 },
+];
 
+export function districtAt(x, z) {
+  for (const d of DISTRICTS) {
+    if (x >= d.x0 && x < d.x1 && z >= d.z0 && z < d.z1) return d.name;
+  }
+  return 'Solmar Bay';
+}
+
+// Sun-soaked palette: warm sand, teal water, terracotta roofs.
 export const PALETTE = {
-  backdrop: '#11141b',
-  sky: '#1b1f2a',
-  ground: '#2a3040',
-  player: '#4fc3f7',
-  block: '#e5534b',
-  coin: '#f2c94c',
-  panel: '#252b38',
-  text: '#eef1f5',
-  muted: '#8b93a3',
+  skyDay: 0x87bfe8,
+  skySunset: 0xff9a5c,
+  skyNight: 0x0e1a33,
+  fogDay: 0xa8c8e0,
+  water: 0x2e7f9e,
+  sand: 0xe8d29a,
+  grass: 0x5d8a4a,
+  asphalt: 0x3a3d42,
+  sidewalk: 0x9a9a92,
+  buildingGlass: 0x9fc4d8,
 };
 
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+export function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
 
-/** Where the best score is kept between visits (this browser only). */
-export const BEST_KEY = 'block-dodger.best';
+export function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+export function angleLerp(a, b, t) {
+  let d = (b - a) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
+}
+
+export function distance2D(ax, az, bx, bz) {
+  const dx = ax - bx;
+  const dz = az - bz;
+  return Math.sqrt(dx * dx + dz * dz);
+}

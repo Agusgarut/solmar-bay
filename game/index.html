@@ -1,18 +1,110 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>AshboelPunks — Solmar Bay</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1a33; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hidden { display: none !important; }
+
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #eef1f5; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+  #hud-top-left { position: absolute; top: 14px; left: 14px; }
+  #health-bar { width: 220px; height: 14px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.35); border-radius: 7px; overflow: hidden; }
+  #health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #37c978, #7be495); transition: width .2s; }
+  #health-fill.low { background: linear-gradient(90deg, #e5534b, #ff8a7a); }
+  #health-text { font-weight: 700; }
+  #money { font-size: 26px; font-weight: 800; color: #7be495; margin-top: 4px; }
+  #district { font-size: 13px; opacity: .9; margin-top: 2px; }
+  #clock { font-size: 13px; opacity: .9; }
+
+  #wanted { position: absolute; top: 14px; right: 16px; font-size: 30px; letter-spacing: 4px; color: #ffd23b; }
+  #wanted.hot { animation: pulse 0.7s infinite alternate; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+
+  #objective { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); max-width: 70%; text-align: center; font-size: 16px; font-weight: 600; background: rgba(0,0,0,.5); padding: 8px 16px; border-radius: 8px; }
+  #speed { position: absolute; right: 16px; bottom: 16px; font-size: 26px; font-weight: 800; }
+
+  #minimap { position: absolute; left: 14px; bottom: 14px; width: 190px; height: 190px; border: 2px solid rgba(255,255,255,.4); border-radius: 50%; background: #1d4e63; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+
+  #toast { position: absolute; bottom: 220px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.65); padding: 10px 18px; border-radius: 8px; font-size: 16px; }
+  #briefing { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); width: min(560px, 86vw); background: rgba(10,14,24,.85); border: 1px solid #ffd23b; border-radius: 10px; padding: 16px 20px; }
+  #briefing-title { font-size: 22px; font-weight: 800; color: #ffd23b; margin-bottom: 6px; }
+  #briefing-text { font-size: 15px; line-height: 1.5; }
+
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 3px #000; }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
+
+  #damage { position: fixed; inset: 0; pointer-events: none; box-shadow: inset 0 0 90px 30px rgba(220,30,30,.55); }
+
+  /* ---- Screens ---- */
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #eef1f5; background: linear-gradient(180deg, rgba(8,12,24,.25) 0%, rgba(8,12,24,.78) 78%); }
+  .game-title { font-size: min(84px, 12vw); font-weight: 900; letter-spacing: 2px; margin: 0; color: #ffd23b; text-shadow: 0 4px 0 #7a2e0e, 0 8px 24px rgba(0,0,0,.8); font-style: italic; }
+  .game-subtitle { font-size: min(22px, 4vw); margin: 10px 0 4px; opacity: .95; }
+  .game-tagline { font-size: 15px; opacity: .8; max-width: 560px; line-height: 1.6; padding: 0 20px; }
+  .big-btn { margin-top: 28px; font-size: 20px; font-weight: 800; color: #111; background: #ffd23b; border: none; border-radius: 10px; padding: 14px 34px; cursor: pointer; pointer-events: auto; }
+  .controls { margin-top: 26px; font-size: 14px; line-height: 1.9; opacity: .85; background: rgba(0,0,0,.45); padding: 12px 22px; border-radius: 10px; }
+  .screen h2 { font-size: 44px; margin: 0 0 10px; }
+  .screen p { font-size: 17px; max-width: 520px; padding: 0 20px; line-height: 1.6; }
 </style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<canvas id="game" aria-label="AshboelPunks: open-world crime game di kota Solmar Bay"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="hud-top-left">
+    <div id="health-bar"><div id="health-fill"></div></div>
+    <div>HP <span id="health-text">100</span></div>
+    <div id="money">$250</div>
+    <div id="district">Solmar Bay</div>
+    <div id="clock">09:30</div>
+  </div>
+  <div id="wanted">☆☆☆☆☆</div>
+  <div id="objective"></div>
+  <canvas id="minimap" width="190" height="190"></canvas>
+  <div id="speed"></div>
+  <div id="toast" class="hidden"></div>
+  <div id="briefing" class="hidden">
+    <div id="briefing-title"></div>
+    <div id="briefing-text"></div>
+  </div>
+  <div id="crosshair" class="hidden"></div>
+</div>
+<div id="damage" class="hidden"></div>
+
+<div id="screen-title" class="screen">
+  <h1 class="game-title">ASHBOELPUNKS</h1>
+  <div class="game-subtitle">Selamat datang di Solmar Bay</div>
+  <p class="game-tagline">Dani Reyes, sopir kurir yang terseret ke dunia kriminal kota pantai ini.
+  Curi mobil, kabur dari polisi, selesaikan 6 misi — dan kuasai jalanan.</p>
+  <button class="big-btn" onclick="document.getElementById('game').dispatchEvent(new PointerEvent('pointerdown', {button: 0}))">▶ MULAI MAIN</button>
+  <div class="controls">
+    WASD — jalan / nyetir &nbsp;·&nbsp; Shift — lari &nbsp;·&nbsp; Spasi — lompat<br>
+    E — masuk / keluar mobil &nbsp;·&nbsp; M — mulai misi &nbsp;·&nbsp; Q — ganti senjata<br>
+    F / klik kanan — pukul &nbsp;·&nbsp; Klik kiri — tembak &nbsp;·&nbsp; P — jeda &nbsp;·&nbsp; N — suara
+  </div>
+</div>
+
+<div id="screen-pause" class="screen hidden">
+  <h2>JEDA</h2>
+  <p>Istirahat dulu. Progress tersimpan otomatis.</p>
+  <button class="big-btn" onclick="document.getElementById('game').dispatchEvent(new PointerEvent('pointerdown', {button: 0}))">▶ LANJUT</button>
+</div>
+
+<div id="screen-over" class="screen hidden">
+  <h2 id="over-title">WASTED</h2>
+  <p id="over-text"></p>
+  <button class="big-btn" onclick="document.getElementById('game').dispatchEvent(new PointerEvent('pointerdown', {button: 0}))">↻ COBA LAGI</button>
+</div>
+
 <p id="status" role="status" aria-live="polite"></p>
 <script type="module" src="./src/main.js"></script>
 </body>
