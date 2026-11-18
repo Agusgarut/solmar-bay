@@ -201,9 +201,10 @@ export function createCarModel(typeName, color, rng) {
     box(group, 0.16, 0.08, type.length * 0.28, bodyMat, 0, 0.93, type.length * 0.26, false);
     // Roof antenna fin on the hero car.
     box(group, 0.08, 0.22, 0.4, darkMat, 0, 1.56, -type.length * 0.22, false);
-    // Two-tone white roof: the hero car reads bright from behind and
-    // above, not as a dark slab.
-    box(group, type.width * 0.88, 0.06, type.length * 0.44, new THREE.MeshLambertMaterial({ color: 0xf2f2ee }), 0, 1.5, -type.length * 0.05, false);
+    // Dark glass canopy roof: the fast cars read as sleek sports cars
+    // from the chase cam — a dark canopy, not a pale slab that splits
+    // the car in two from behind.
+    box(group, type.width * 0.88, 0.06, type.length * 0.44, glassMat, 0, 1.5, -type.length * 0.05, false);
     // Rear light strip: a glowing bar across the back, so the car reads
     // from behind at dusk. Brighter than before, and it flares on braking.
     stripMat = new THREE.MeshLambertMaterial({ color: 0xff5e8a, emissive: 0xff2e88, emissiveIntensity: 2.0 });

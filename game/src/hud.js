@@ -55,6 +55,7 @@ export function createHud() {
   const chipPistolLabel = document.getElementById('chip-pistol-label');
   const carCondition = document.getElementById('car-condition');
   const carConditionFill = document.getElementById('car-condition-fill');
+  const carConditionLabel = document.getElementById('car-condition-label');
   const dialogueEl = document.getElementById('dialogue');
   const dialogueAvatar = document.getElementById('dialogue-avatar');
   const dialogueSpeaker = document.getElementById('dialogue-speaker');
@@ -237,22 +238,27 @@ export function createHud() {
       radioStation.textContent = `${state.radio.name} ${state.radio.freq}`;
       radioTrack.textContent = state.radio.track;
     }
-    radioCar.textContent = state.vehicle ? `${state.vehicle.name} · Kondisi ${Math.max(0, Math.round(state.vehicle.condition))}%` : '';
+    radioCar.textContent = state.vehicle ? state.vehicle.name : '';
     // Condition bar under the car name, like the reference's CONDITION meter.
     if (state.vehicle) {
       carCondition.classList.remove('hidden');
-      carConditionFill.style.width = `${Math.max(0, Math.min(100, state.vehicle.condition))}%`;
+      carConditionLabel.classList.remove('hidden');
+      const pct = Math.max(0, Math.min(100, Math.round(state.vehicle.condition)));
+      carConditionFill.style.width = `${pct}%`;
+      carConditionLabel.textContent = `CONDITION ${pct}%`;
     } else {
       carCondition.classList.add('hidden');
+      carConditionLabel.classList.add('hidden');
     }
     // Speed, big, with km/h.
     speedEl.innerHTML = state.inCar
       ? `${Math.round(Math.abs(state.speed) * 3.6)} <small>km/h</small>` : '';
     minimapLabel.textContent = state.street ? `${state.district.toUpperCase()} · ${state.street}` : state.district;
-    // Respect meter under the minimap: jobs done + heat earned.
+    // Respect meter under the minimap: jobs done + heat earned, with the
+    // progress numbers like the reference's "1,960 / 2,400".
     const respect = Math.max(0, Math.min(100, state.respect || 0));
     respectFill.style.width = `${respect}%`;
-    respectValue.textContent = `${respect}`;
+    respectValue.textContent = `${respect} / 100`;
   }
 
   return {
@@ -321,7 +327,11 @@ export function createHud() {
       crosshair.classList.toggle('hidden', !state.showCrosshair);
       const hours = Math.floor(state.timeOfDay);
       const minutes = Math.floor((state.timeOfDay - hours) * 60);
-      clockEl.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+      // Day of the week, like the reference's "FRI 17:24": the game opens
+      // on a Friday and the day rolls over every in-game day.
+      const DAYS = ['JUM', 'SAB', 'MIN', 'SEN', 'SEL', 'RAB', 'KAM'];
+      const day = DAYS[(state.day || 0) % 7];
+      clockEl.textContent = `${day} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
       // Red flash when the player just took damage.
       if (state.health < lastHealth) {
         damageEl.classList.remove('hidden');

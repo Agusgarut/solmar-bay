@@ -259,9 +259,18 @@ function drivePlayerCar(dt, car, throttle, steer, handbrake, allCars) {
       hud.showToast('Kamu menabrak pejalan kaki! Wanted +1.');
     }
   }
-  // Dust and exhaust while driving.
-  if (Math.abs(car.speed) > 8 && Math.random() < dt * 8) {
-    effects.dust(car.x - Math.sin(car.heading) * 2, 0.3, car.z - Math.cos(car.heading) * 2);
+  // Dust and exhaust while driving: a soft billowing trail behind the
+  // rear wheels at speed, like the new reference's dust cloud. The puffs
+  // stay where the tyres kicked them up (world space) and expand there —
+  // the car's forward motion lays the trail, so they need no backward
+  // velocity of their own (a backward kick would blow them past the
+  // camera before they can be seen).
+  if (Math.abs(car.speed) > 8 && Math.random() < dt * 14) {
+    effects.dustTrail(
+      car.x - Math.sin(car.heading) * 2, 0.4, car.z - Math.cos(car.heading) * 2,
+      0, 0,
+      Math.min(1, Math.abs(car.speed) / 40),
+    );
   }
   if (Math.abs(car.speed) > 20 && Math.random() < dt * 4) {
     effects.smoke(car.x, 0.6, car.z);
@@ -338,6 +347,7 @@ function syncHud(dt) {
     district: districtAt(player.x, player.z),
     street: streetAt(player.x, player.z),
     timeOfDay: ctx.timeOfDay,
+    day: Math.floor(elapsed / DAY_LENGTH_SECONDS) % 7,
     showCrosshair: !player.inCar && player.weapon === 'pistol',
   });
   save.bestWanted = Math.max(save.bestWanted, police.wanted);

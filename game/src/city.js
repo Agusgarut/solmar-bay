@@ -49,9 +49,10 @@ function makeRoadTexture() {
   canvas.width = 512;
   canvas.height = 64;
   const g = canvas.getContext('2d');
-  // Warm dark grey base: dark enough to read as asphalt, warm enough to
-  // catch the sunset instead of going cold blue-grey.
-  g.fillStyle = '#3a352e';
+  // Light warm-grey base: sunlit asphalt like the new reference — light
+  // enough to read bright at sunset, grey enough to stay asphalt, never
+  // a brown desert. The warm sun does the warming; the base stays grey.
+  g.fillStyle = '#6e675c';
   g.fillRect(0, 0, 512, 64);
   // Soft tonal blotches: low alpha so the 512px tile repeats without an
   // obvious seam, just enough grain to break the flat colour.
@@ -67,16 +68,18 @@ function makeRoadTexture() {
   g.fillStyle = 'rgba(28, 24, 20, 0.20)';
   g.fillRect(0, 12, 512, 7);
   g.fillRect(0, 45, 512, 7);
-  // Sunlit sheen band on the sun side of the road.
+  // Sunlit sheen band on the sun side of the road, stronger now that the
+  // base is lighter: the road must glow a little in the sunset.
   const sheen = g.createLinearGradient(0, 0, 0, 20);
-  sheen.addColorStop(0, 'rgba(255, 225, 170, 0.16)');
+  sheen.addColorStop(0, 'rgba(255, 225, 170, 0.22)');
   sheen.addColorStop(1, 'rgba(255, 225, 170, 0)');
   g.fillStyle = sheen;
   g.fillRect(0, 0, 512, 20);
-  // Double yellow centre lines, continuous along the road.
+  // Double yellow centre lines, 1 px thin and close together like the
+  // reference's — the old 2-3 px lines read as fat yellow slabs at speed.
   g.fillStyle = '#f2c230';
-  g.fillRect(0, 27, 512, 3);
-  g.fillRect(0, 34, 512, 3);
+  g.fillRect(0, 31, 512, 1);
+  g.fillRect(0, 33, 512, 1);
   // White edge lines.
   g.fillStyle = '#e8e4da';
   g.fillRect(0, 3, 512, 2);
@@ -202,7 +205,9 @@ export function buildCity(scene, rng) {
   // Geometries are pre-rotated flat (rotateY turns a road along X into one
   // along Z), so no per-mesh Euler guesswork is needed.
   const roadTexture = makeRoadTexture();
-  const roadMat = new THREE.MeshPhongMaterial({ map: roadTexture, emissive: 0xffc08a, emissiveIntensity: 0, shininess: 14, specular: 0x2a241e });
+  // Sunlit lift: a little warm emissive so the asphalt reads bright in
+  // the sunset instead of going dark brown under the pink sky.
+  const roadMat = new THREE.MeshPhongMaterial({ map: roadTexture, emissive: 0xffc08a, emissiveIntensity: 0.14, shininess: 14, specular: 0x2a241e });
   const walkMat = new THREE.MeshLambertMaterial({ color: PALETTE.sidewalk });
   const roadGeoX = new THREE.PlaneGeometry(WORLD_HALF * 2, ROAD_WIDTH);
   roadGeoX.rotateX(-Math.PI / 2);
@@ -310,6 +315,10 @@ export function buildCity(scene, rng) {
   // Buildings, lot by lot, so blocks read as a dense city rather than one
   // box in an empty field. Each district builds differently.
   const facadeTextures = FACADE_COLORS.map((c) => makeFacadeTexture(rng, c, false));
+  // Beachfront facades lean warm — peach, pink, terracotta, cream — like
+  // the new reference's pastel seafront, never cool grey-green.
+  const warmFacadeTextures = ['#e8a89a', '#f0b27a', '#f2d06b', '#d9a0c0', '#d9b48f', '#e0cfa8', '#c98a6b']
+    .map((c) => makeFacadeTexture(rng, c, false));
   const glassTextures = GLASS_COLORS.map((c) => makeFacadeTexture(rng, c, true));
   const roofColors = [0xb5654a, 0x8a5a3c, 0x6b7c8a, 0x9c8a6a];
   // Shopfront awnings: bright striped canopies over the ground floor, so
@@ -319,6 +328,7 @@ export function buildCity(scene, rng) {
     new THREE.MeshLambertMaterial({ color: 0x2ec4b6 }),
     new THREE.MeshLambertMaterial({ color: 0xffb13b }),
     new THREE.MeshLambertMaterial({ color: 0x4f9dff }),
+    new THREE.MeshLambertMaterial({ color: 0xe8483f }),
   ];
   const ranges = blockRanges();
   const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -354,7 +364,7 @@ export function buildCity(scene, rng) {
       sign.position.set(cx, h * 0.72, cz + d / 2 + 0.35);
       group.add(sign);
     }
-    if (district !== 'industrial' && h < 30 && rng() < 0.4) {
+    if (district !== 'industrial' && h < 30 && rng() < (district === 'beachfront' ? 0.6 : 0.4)) {
       const awning = new THREE.Mesh(
         new THREE.BoxGeometry(Math.min(w * 0.7, 14), 0.18, 1.4),
         pick(rng, awningMats),
@@ -370,7 +380,9 @@ export function buildCity(scene, rng) {
     // Clone the facade texture per building and repeat it to the building's
     // size, so windows stay the same size on every facade instead of
     // stretching into giant slabs on wide towers.
-    const baseTex = glass ? pick(rng, glassTextures) : pick(rng, facadeTextures);
+    const baseTex = glass
+      ? pick(rng, glassTextures)
+      : district === 'beachfront' ? pick(rng, warmFacadeTextures) : pick(rng, facadeTextures);
     const tex = baseTex.clone();
     tex.needsUpdate = true;
     tex.wrapS = THREE.RepeatWrapping;
@@ -637,59 +649,169 @@ export function buildCity(scene, rng) {
     boats.push(boat);
   }
 
-  // Shared palm geometry: one trunk, one frond and one nut reused by
-  // every palm, so a hundred palms cost meshes, not thousands of geometries.
-  const palmTrunkGeo = new THREE.CylinderGeometry(0.22, 0.42, 7, 6);
-  // Fronds are 6-sided cones with real thickness (not flat triangles):
-  // two layers — a wide drooping lower crown and a shorter, more upright
-  // upper crown — so the crown reads as a 3D palm, never a beach umbrella.
-  const palmFrondGeo = new THREE.ConeGeometry(1.05, 4.6, 6);
+  // ---- Realistic palms -------------------------------------------------
+  // A palm frond is a curved rib with leaflets fanning off it — never a
+  // cone. Three shared frond geometries (drooping / mid / upright arcs)
+  // are reused by every palm, so ~200 palms stay cheap: shared geometry,
+  // one material, ~17 meshes per palm.
+  function makeFrondGeometry(len, rise, droop, leafLen) {
+    const positions = [];
+    const colors = [];
+    const indices = [];
+    let vi = 0;
+    const stations = 10;
+    const rib = [];
+    for (let i = 0; i <= stations; i += 1) {
+      const t = i / stations;
+      rib.push({ x: len * t, y: len * (rise * t - droop * t * t), t });
+    }
+    // Leaflet length: short at the base, widest near the middle, tapering
+    // to a point at the tip.
+    const leafAt = (t) => leafLen * Math.sin(Math.PI * (0.08 + 0.92 * t)) * (1 - 0.3 * t);
+    // Green gradient along the frond: deep green at the base, sunlit lime
+    // mid-frond, pale yellow-green at the tip.
+    const colBase = [0.3, 0.58, 0.2];
+    const colMid = [0.46, 0.76, 0.3];
+    const colTip = [0.62, 0.82, 0.38];
+    function leafColor(t) {
+      if (t < 0.5) return colBase.map((v, k) => v + (colMid[k] - v) * (t / 0.5));
+      return colMid.map((v, k) => v + (colTip[k] - v) * ((t - 0.5) / 0.5));
+    }
+    function tri(a, b, c, color) {
+      positions.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+      for (let k = 0; k < 3; k += 1) colors.push(color[0], color[1], color[2]);
+      indices.push(vi, vi + 1, vi + 2);
+      vi += 3;
+    }
+    // Central rib: a thin dark-olive strip along the curve, the frond's
+    // visible spine.
+    const ribCol = [0.32, 0.46, 0.18];
+    for (let i = 0; i < stations; i += 1) {
+      const p0 = rib[i];
+      const p1 = rib[i + 1];
+      const w = 0.05;
+      tri([p0.x, p0.y + 0.03, -w], [p1.x, p1.y + 0.03, -w], [p1.x, p1.y + 0.03, w], ribCol);
+      tri([p0.x, p0.y + 0.03, -w], [p1.x, p1.y + 0.03, w], [p0.x, p0.y + 0.03, w], ribCol);
+    }
+    // Leaflets: one blade per side at each station. Each blade is a
+    // triangle — wide at the rib, pointed at the tip — angled backwards
+    // and drooping, so the frond's edge reads feathery, not solid.
+    for (let i = 1; i < stations; i += 1) {
+      const p = rib[i];
+      const pNext = rib[i + 1];
+      const segLen = Math.hypot(pNext.x - p.x, pNext.y - p.y);
+      const dirX = (pNext.x - p.x) / segLen;
+      const dirY = (pNext.y - p.y) / segLen;
+      const L = leafAt(p.t);
+      const col = leafColor(p.t);
+      for (const side of [-1, 1]) {
+        const tip = [
+          p.x - dirX * L * 0.35,
+          p.y + dirY * L * 0.1 - L * 0.22,
+          side * L,
+        ];
+        const base = [p.x, p.y, 0];
+        const base2 = [p.x + dirX * segLen * 0.55, p.y + dirY * segLen * 0.55, 0];
+        tri(base, base2, tip, col);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  const palmFrondDroopGeo = makeFrondGeometry(5.4, 0.12, 0.6, 0.7);
+  const palmFrondMidGeo = makeFrondGeometry(5.0, 0.3, 0.42, 0.65);
+  const palmFrondUpGeo = makeFrondGeometry(4.3, 0.55, 0.28, 0.55);
+  const palmFrondMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true });
   const palmNutGeo = new THREE.SphereGeometry(0.28, 6, 5);
-  const palmFrondMats = [
-    new THREE.MeshLambertMaterial({ color: 0x55aa4f }),
-    new THREE.MeshLambertMaterial({ color: 0x479e46 }),
-  ];
-  const palmFrondTopMat = new THREE.MeshLambertMaterial({ color: 0x6fbf5a });
   const palmNutMat = new THREE.MeshLambertMaterial({ color: 0x6a4a2c });
-  // Beachfront palms wear the reference's tall RED trunks.
-  const palmRedTrunkMat = new THREE.MeshLambertMaterial({ color: 0x9e3b2c });
-  // Coconut palms: curved trunks, a two-layer crown of drooping fronds and
-  // a cluster of nuts under it — they must read as palms at a glance, with
-  // shadows long enough to stripe the road at golden hour.
+  // Ringed trunk texture: palm trunks are banded where old fronds fell.
+  function makeTrunkTexture(base, band) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 128;
+    const g = canvas.getContext('2d');
+    g.fillStyle = base;
+    g.fillRect(0, 0, 64, 128);
+    for (let y = 0; y < 128; y += 9) {
+      g.fillStyle = band;
+      g.fillRect(0, y, 64, 3);
+    }
+    for (let i = 0; i < 12; i += 1) {
+      g.fillStyle = 'rgba(0,0,0,0.08)';
+      g.fillRect(rng01() * 64, 0, 2, 128);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  // Tall SLIM trunk, gently curved (bent in the geometry, not just leaned):
+  // the reference palms are slender and arc, never straight columns.
+  const palmTrunkGeo = (() => {
+    const geo = new THREE.CylinderGeometry(0.16, 0.36, 8, 7, 8);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i += 1) {
+      const y = pos.getY(i);
+      const t = (y + 4) / 8;
+      pos.setX(i, pos.getX(i) + 0.9 * t * t);
+    }
+    geo.computeVertexNormals();
+    return geo;
+  })();
+  const palmFlareGeo = new THREE.CylinderGeometry(0.36, 0.58, 0.9, 7);
+  // Beachfront palms wear the reference's tall RED trunks; avenue palms
+  // wear ringed brown bark.
+  const palmTrunkMatRed = new THREE.MeshLambertMaterial({ map: makeTrunkTexture('#9e3b2c', '#7e2d22') });
+  const palmTrunkMatBrown = new THREE.MeshLambertMaterial({ map: makeTrunkTexture('#6a4a2c', '#54371f') });
+  // Coconut palms: a slender curved trunk, a root flare, a three-layer
+  // crown of feathered fronds and a cluster of nuts under it — they must
+  // read as palms at a glance, with shadows long enough to stripe the
+  // road at golden hour.
   function palm(x, z, scale, trunkMaterial) {
     const s = scale || 1;
     const palmGroup = new THREE.Group();
-    const lean = range(rng, -0.18, 0.18);
-    const trunk = new THREE.Mesh(palmTrunkGeo, trunkMaterial || trunkMat);
-    trunk.position.y = 3.5;
-    trunk.rotation.z = lean;
+    const lean = range(rng, -0.14, 0.14);
+    const yaw = rng() * Math.PI * 2;
+    const inner = new THREE.Group();
+    inner.rotation.set(0, yaw, lean);
+    const trunk = new THREE.Mesh(palmTrunkGeo, trunkMaterial || palmTrunkMatBrown);
+    trunk.position.y = 4;
     trunk.castShadow = true;
-    palmGroup.add(trunk);
-    const crownY = 7.3;
-    const crownX = lean * 7;
-    // One ring of fronds around the crown: each frond is a thick cone
-    // tilted out from vertical by `tilt` (past horizontal = drooping),
-    // placed at `radius` from the crown centre. Two rings make the crown:
-    // a wide drooping lower ring and a shorter, lighter, more upright
-    // upper ring, so the crown has a second layer and a real silhouette.
-    function frondRing(count, radius, height, tilt, size, material, offset) {
+    inner.add(trunk);
+    const flare = new THREE.Mesh(palmFlareGeo, trunkMaterial || palmTrunkMatBrown);
+    flare.position.y = 0.45;
+    inner.add(flare);
+    // Crown sits at the bent trunk top, so it follows the lean and the
+    // curve instead of floating beside the trunk.
+    const crown = new THREE.Group();
+    crown.position.set(0.9, 8.0, 0);
+    inner.add(crown);
+    // One ring of fronds: each frond extends +X from the crown and is
+    // yawed around it, with a tilt that raises (upper ring) or lowers
+    // (drooping ring) the tip. Three rings make a full, layered crown.
+    function frondRing(geo, count, y, tilt, size, offset) {
       for (let i = 0; i < count; i += 1) {
-        const angle = (i / count) * Math.PI * 2 + offset + range(rng, -0.2, 0.2);
-        const frond = new THREE.Mesh(palmFrondGeo, material);
-        frond.scale.set(size, size, size * 0.5);
-        frond.position.set(crownX + Math.sin(angle) * radius, height, Math.cos(angle) * radius);
-        frond.rotation.set(Math.cos(angle) * tilt, 0, -Math.sin(angle) * tilt);
+        const angle = (i / count) * Math.PI * 2 + offset + range(rng, -0.25, 0.25);
+        const frond = new THREE.Mesh(geo, palmFrondMat);
+        frond.scale.setScalar(size * range(rng, 0.92, 1.1));
+        frond.position.y = y;
+        frond.rotation.set(0, angle, tilt + range(rng, -0.08, 0.08));
         frond.castShadow = true;
-        palmGroup.add(frond);
+        crown.add(frond);
       }
     }
-    frondRing(6, 1.8, crownY - 0.4, 1.75, 1, pick(rng, palmFrondMats), 0);
-    frondRing(3, 1.1, crownY + 0.7, 1.15, 0.75, palmFrondTopMat, Math.PI / 3);
+    frondRing(palmFrondDroopGeo, 5, -0.15, -0.15, 1, 0);
+    frondRing(palmFrondMidGeo, 4, 0.1, 0.05, 1, 0.65);
+    frondRing(palmFrondUpGeo, 3, 0.35, 0.35, 0.9, 0.3);
     for (const [nx, nz] of [[0.45, 0.3], [-0.4, -0.25], [0.1, -0.5]]) {
       const nut = new THREE.Mesh(palmNutGeo, palmNutMat);
-      nut.position.set(crownX + nx, crownY - 0.6, nz);
-      palmGroup.add(nut);
+      nut.position.set(nx, -0.55, nz);
+      crown.add(nut);
     }
+    palmGroup.add(inner);
     palmGroup.scale.setScalar(s);
     palmGroup.position.set(x, 0, z);
     group.add(palmGroup);
@@ -782,8 +904,8 @@ export function buildCity(scene, rng) {
   // BOTH sides of the Ocean boulevard (x=315) — the sand edge east of the
   // road and the sidewalk west of it — every ~14 m, so the beach road
   // reads as a palm tunnel like the reference, not a few scattered trees.
-  for (let z = -336; z <= 336; z += 14) palm(330 + range(rng, -2, 2), z, range(rng, 1.25, 1.6), palmRedTrunkMat);
-  for (let z = -328; z <= 328; z += 16) palm(306 + range(rng, -1, 1), z, range(rng, 1.2, 1.55), palmRedTrunkMat);
+  for (let z = -336; z <= 336; z += 14) palm(330 + range(rng, -2, 2), z, range(rng, 1.25, 1.6), palmTrunkMatRed);
+  for (let z = -328; z <= 328; z += 16) palm(306 + range(rng, -1, 1), z, range(rng, 1.2, 1.55), palmTrunkMatRed);
   // Avenue palms: the four central avenues are lined on both sides, so
   // every drive down a main road is framed by palms, like the entries on
   // the feed. Offset 12 puts them on the outer sidewalk, clear of the
@@ -867,21 +989,22 @@ export function buildCity(scene, rng) {
   );
   scene.add(sunGlow);
 
-  // Gradient sky dome: bright peach at the horizon fading to soft blue
-  // overhead, so the sky reads like a real golden-hour sky instead of a
-  // flat colour. It follows the player and darkens at night.
+  // Gradient sky dome: violet overhead fading through pink to gold at
+  // the horizon, like the new reference's pink-purple sunset — the sky
+  // reads like a real sunset sky instead of a flat colour. It follows
+  // the player and darkens at night.
   const skyCanvas = document.createElement('canvas');
   skyCanvas.width = 4;
   skyCanvas.height = 256;
   const skyG = skyCanvas.getContext('2d');
   const skyGrad = skyG.createLinearGradient(0, 0, 0, 256);
-  // Pale gold at the horizon -> peach -> rose -> light blue overhead,
-  // no muddy band: the gradient stays warm and bright at golden hour.
-  skyGrad.addColorStop(0, '#a8cbe8');
-  skyGrad.addColorStop(0.28, '#e8a49c');
-  skyGrad.addColorStop(0.5, '#ffb27a');
-  skyGrad.addColorStop(0.68, '#ffbe78');
-  skyGrad.addColorStop(1, '#ffc27a');
+  // Violet overhead -> pink-purple -> pink -> peach -> gold at the
+  // horizon, no muddy band: the gradient stays bright at golden hour.
+  skyGrad.addColorStop(0, '#8a6fd0');
+  skyGrad.addColorStop(0.28, '#c77fb8');
+  skyGrad.addColorStop(0.5, '#ff9eb0');
+  skyGrad.addColorStop(0.72, '#ffb27a');
+  skyGrad.addColorStop(1, '#ffd27a');
   skyG.fillStyle = skyGrad;
   skyG.fillRect(0, 0, 4, 256);
   const skyTex = new THREE.CanvasTexture(skyCanvas);
@@ -893,8 +1016,8 @@ export function buildCity(scene, rng) {
   const skyNightTint = new THREE.Color(0x1a2438);
   const skyWhite = new THREE.Color(0xffffff);
 
-  // Thin golden-hour clouds: soft sprites drifting high above the city,
-  // warm-tinted so the sky isn't one flat gradient. Sprites always face
+  // Thin pink sunset clouds: soft sprites drifting high above the city,
+  // pink-tinted so the sky isn't one flat gradient. Sprites always face
   // the camera, so a handful of them reads as cloud cover from any angle.
   const cloudCanvas = document.createElement('canvas');
   cloudCanvas.width = 256;
@@ -902,8 +1025,8 @@ export function buildCity(scene, rng) {
   const cloudG = cloudCanvas.getContext('2d');
   for (const [cx, cy, r] of [[70, 70, 46], [120, 78, 52], [180, 70, 44], [100, 55, 34], [155, 55, 32]]) {
     const grad = cloudG.createRadialGradient(cx, cy, 4, cx, cy, r);
-    grad.addColorStop(0, 'rgba(255,255,255,0.85)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    grad.addColorStop(0, 'rgba(255,214,232,0.9)');
+    grad.addColorStop(1, 'rgba(255,214,232,0)');
     cloudG.fillStyle = grad;
     cloudG.fillRect(0, 0, 256, 128);
   }
@@ -911,7 +1034,7 @@ export function buildCity(scene, rng) {
   cloudTex.colorSpace = THREE.SRGBColorSpace;
   const clouds = [];
   for (let i = 0; i < 10; i += 1) {
-    const mat = new THREE.SpriteMaterial({ map: cloudTex, color: 0xfff6e8, transparent: true, opacity: 0.6, depthWrite: false, fog: false });
+    const mat = new THREE.SpriteMaterial({ map: cloudTex, color: 0xffd9e8, transparent: true, opacity: 0.6, depthWrite: false, fog: false });
     const sprite = new THREE.Sprite(mat);
     const sx = -500 + (i * 113) % 1000;
     const sy = 95 + (i * 29) % 40;

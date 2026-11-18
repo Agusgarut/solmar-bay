@@ -40,6 +40,36 @@ export function createEffects(scene) {
   points.frustumCulled = false;
   scene.add(points);
 
+  // Soft dust-trail sprites: billowing clouds behind a fast car, like the
+  // new reference's dust — real sprites that grow and fade, never hard
+  // squares or boxes. Each sprite has its own material so it can fade
+  // independently.
+  const DUST_SPRITES = 28;
+  const dustTex = makeSoftDotTexture();
+  const dustPool = [];
+  for (let i = 0; i < DUST_SPRITES; i += 1) {
+    const mat = new THREE.SpriteMaterial({ map: dustTex, color: 0xe8dcc8, transparent: true, opacity: 0, depthWrite: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.visible = false;
+    sprite.position.set(0, -100, 0);
+    scene.add(sprite);
+    dustPool.push({ sprite, life: 0, maxLife: 1, startScale: 1, growTo: 4, vx: 0, vy: 0, vz: 0 });
+  }
+  let dustCursor = 0;
+  function spawnDust(x, y, z, vx, vy, vz, strength) {
+    const d = dustPool[dustCursor];
+    dustCursor = (dustCursor + 1) % DUST_SPRITES;
+    d.life = 0.9 + Math.random() * 0.4;
+    d.maxLife = d.life;
+    d.startScale = 2.5 + strength;
+    d.growTo = 5 + strength * 2.5 + Math.random();
+    d.vx = vx + (Math.random() - 0.5) * 1.5;
+    d.vy = vy + Math.random() * 0.6;
+    d.vz = vz + (Math.random() - 0.5) * 1.5;
+    d.sprite.position.set(x + (Math.random() - 0.5) * 1.6, y + Math.random() * 0.3, z + (Math.random() - 0.5) * 1.6);
+    d.sprite.visible = true;
+  }
+
   // Ring buffer: `cursor` walks the pool, so the oldest particle is always
   // the next one recycled — no search, no allocation.
   const pool = [];
@@ -107,6 +137,13 @@ export function createEffects(scene) {
     splash(x, y, z) {
       burst(x, y, z, 7, 2.2, 2.4, 0.6, 0.85, 0.95, 1.0);
     },
+    // Billowing dust trail behind a fast car: three soft sprites per call,
+    // drifting back with the car's motion, growing as they fade.
+    dustTrail(x, y, z, vx, vz, strength) {
+      spawnDust(x, y, z, vx, 0.2, vz, strength);
+      spawnDust(x, y, z, vx, 0.2, vz, strength);
+      spawnDust(x, y, z, vx, 0.2, vz, strength);
+    },
     update(dt) {
       for (let i = 0; i < MAX_PARTICLES; i += 1) {
         const p = pool[i];
@@ -130,6 +167,25 @@ export function createEffects(scene) {
       }
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.color.needsUpdate = true;
+      // Dust sprites: grow as they age, fade out, drift with their
+      // velocity and settle — a cloud, not a puff that pops out.
+      for (const d of dustPool) {
+        if (d.life <= 0) continue;
+        d.life -= dt;
+        if (d.life <= 0) {
+          d.sprite.visible = false;
+          d.sprite.material.opacity = 0;
+          continue;
+        }
+        const age = 1 - d.life / d.maxLife;
+        const s = d.startScale + (d.growTo - d.startScale) * age;
+        d.sprite.scale.set(s, s, 1);
+        d.sprite.material.opacity = 0.65 * (1 - age) * Math.min(1, age * 6 + 0.3);
+        d.sprite.position.x += d.vx * dt;
+        d.sprite.position.y += d.vy * dt;
+        d.sprite.position.z += d.vz * dt;
+        d.vy *= (1 - dt * 1.5);
+      }
     },
   };
 }

@@ -53,7 +53,7 @@ export const CAMERA_HEIGHT = 3.4;
 // Chase cam in a car: low and close, so the car fills the lower third of
 // the frame like the entries on the feed (GTA-style), not small and far.
 export const CAMERA_CAR_DISTANCE = 4.8;
-export const CAMERA_CAR_HEIGHT = 2.3;
+export const CAMERA_CAR_HEIGHT = 2.05;
 
 // Golden hour: the game opens at sunset, like the entries on the feed.
 export const GOLDEN_HOUR = 17.4;
