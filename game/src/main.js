@@ -19,6 +19,7 @@ import { createPlayer, updateCamera, applyDamage } from './player.js';
 import { createTraffic } from './traffic.js';
 import { createPedestrians } from './pedestrians.js';
 import { createPolice } from './police.js';
+import { createChase } from './chase.js';
 import { createCombat } from './combat.js';
 import { createMissions, MISSIONS } from './missions.js';
 import { createEffects } from './effects.js';
@@ -67,6 +68,7 @@ const player = createPlayer(scene);
 const traffic = createTraffic(scene, rng, city);
 const peds = createPedestrians(scene, rng);
 const police = createPolice(scene, rng);
+const chase = createChase(scene);
 const combat = createCombat(scene, rng);
 const missions = createMissions(scene);
 const effects = createEffects(scene);
@@ -79,7 +81,7 @@ const input = createInput(canvas);
 // enemies to fight) that missions ask for by name.
 const ctx = {
   scene, camera, renderer, rng, input, audio, save, city, player, traffic,
-  peds, police, combat, missions, effects, hud, minimap,
+  peds, police, chase, combat, missions, effects, hud, minimap,
   timeOfDay: GOLDEN_HOUR,
   timeBase: GOLDEN_HOUR, // timeOfDay advances from here; staging can set the hour
   state: 'title',
@@ -311,6 +313,7 @@ function stepWorld(dt) {
   traffic.update(dt, allCars);
   peds.update(dt);
   const policeResult = police.update(dt, ctx);
+  chase.update(dt, ctx);
   prevEnemies = combat.enemies.length;
   combat.update(dt, ctx);
   if (combat.enemies.length < prevEnemies) {
@@ -350,6 +353,18 @@ function syncHud(dt) {
     mission: missions.missionInfo(),
     nextMission: missions.nextMissionInfo(save.missionIndex),
     dispatch: police.dispatchList(player.x, player.z),
+    // Helicopter chase state for the HUD badge, and the five weapon
+    // slots: fists + pistol are real, SMG / rifle / sniper are locked
+    // until the player owns one — the chips show the truth, not a prop.
+    heliUnit: chase.heliUnit(),
+    heliSpotting: chase.spotting(),
+    arsenal: [
+      { name: 'TINJU', ammo: '∞', active: player.weapon === 'fists', locked: false },
+      { name: 'PISTOL', ammo: player.ammo, active: player.weapon === 'pistol', locked: false },
+      { name: 'SMG', ammo: 0, active: false, locked: true },
+      { name: 'SENAPAN', ammo: 0, active: false, locked: true },
+      { name: 'SNIPER', ammo: 0, active: false, locked: true },
+    ],
     vehicle: player.inCar ? { name: player.inCar.type.label, condition: player.inCar.health } : null,
     radio: audio.currentStation(),
     weapon: { name: player.weapon, ammo: player.ammo },
@@ -587,7 +602,10 @@ function runShot(name) {
       });
       // The helicopter hangs ahead in the sky, in the frame: straight down
       // the street corridor so the towers on both sides can't hide it.
-      if (name === 'chase') ctx.police.placeHeli(car.heading, car.x, car.z, 35, 60);
+      // Closer and lower (24 m up, 45 m out) and near the centre of the
+      // frame — the old high pose parked it behind the wanted panel and
+      // the palm fronds, too small and dark to read.
+      if (name === 'chase') ctx.police.placeHeli(car.heading, car.x, car.z, 24, 45);
     }
     // One last game step after posing the police: the HUD (dispatch
     // distances, speed) was last updated during the sim, before the cops
@@ -604,12 +622,28 @@ function runShot(name) {
     // the street corridor, where the camera can actually see it.
     if (name === 'chase') {
       const car = ctx.player.inCar;
-      ctx.police.placeHeli(car.heading, car.x, car.z, 28, 60);
-      // Upper-LEFT of the frame, like the reference: east is screen-left
-      // when looking south down the beach road.
+      ctx.police.placeHeli(car.heading, car.x, car.z, 24, 45);
+      // Upper-CENTRE of the frame, clear of both HUD panels: the mission
+      // panel owns the left, the wanted corner owns the right, and the
+      // sky between them is where the helicopter belongs — like the
+      // reference, where the chopper hangs in the open sky, not behind
+      // a panel.
       const heli = ctx.police.heli;
-      if (heli) heli.group.position.x += 22;
+      if (heli) heli.group.position.x += 8;
     }
+    // The beam lags one frame behind the re-posed helicopter unless it
+    // is aimed again now, and the staged dialogue (shown by startMission
+    // at the start of the sim) has long expired — show it fresh so the
+    // dialogue card is up in the frame, like the reference.
+    ctx.chase.sync(ctx);
+    // One last HUD refresh from the posed state: the dispatch distances
+    // were computed before the helicopter was re-posed, so without this
+    // the panel would quote the old orbit (34 m) for a helicopter now
+    // sitting 46 m out.
+    syncHud(0.016);
+    ctx.hud.showDialogue('Rico', name === 'chase'
+      ? 'Helikopter itu masih nempel! Jangan ke garasi dulu — putar lewat gang!'
+      : 'Senja di Beachfront, Dani. Bawa Solmar GT-nya santai, jangan cari ribut.', 30);
   }
   // Settle the sun, sky, fog and lamps for the staged hour: the title shot
   // never runs the loop, so without this it would render noon defaults.
